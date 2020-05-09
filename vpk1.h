@@ -46,6 +46,15 @@ struct vpk1_file_t
 	std::string full_file;
 	void* preload;
 	vpk1_directory_entry_t dirent;
+	/* Some flags we will use */
+	bool dirty : 1; /* Indicates if the file has been modified in code, but not on disk */
+	bool written : 1; /* Indicates if the file has been written (used in Write function) */
+	
+	vpk1_file_t()
+	{
+		dirty = false;
+		written = false;
+	}
 };
 
 class CVPK1Archive

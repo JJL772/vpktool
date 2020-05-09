@@ -137,6 +137,7 @@ int main(int argc, char** argv)
 		if(op & OP_INFO)
 		{
 			archive->DumpInfo(stdout);
+			archive->Write();
 		}
 
 		/* Handle deletions */

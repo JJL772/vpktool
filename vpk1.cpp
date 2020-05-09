@@ -10,6 +10,7 @@
 #include <ios>
 #include <iosfwd>
 #include <iostream>
+#include <unordered_map>
 
 bool IsVPK1(std::string file)
 {
@@ -216,4 +217,88 @@ bool CVPK1Archive::ExtractFile(std::string file, std::string dest)
 		
 	}
 	return false;
+}
+
+bool CVPK1Archive::Write(std::string str)
+{
+	std::string file;
+	if(str == "")
+		file = this->base_archive_name + "_dir.vpk-1";
+
+	/* Create the stream */
+	std::fstream fs(file, std::ios_base::binary | std::ios_base::out);
+
+	if(!fs.good())
+	{
+		fs.close();
+		return false;
+	}
+
+	/* Write a temporary header */
+
+	/* Basically inverse of the loop used to parse the VPK
+	 * First layer is  the extension
+	 * Next layer is  the directory
+	 * Final layer is the file itself */
+	std::string current_ext = "";
+	std::string current_dir = "";
+	bool found = false;
+
+	std::vector<vpk1_file_t> _files = this->files;
+	bool dcond = true, econd = true;
+	int files_written = 0;
+
+	/* LAYER 1: The file extension */
+	/* This is an infinite loop that resets the current extension to "" after each iteration */
+	for(; ; current_ext = "", econd = false, dcond = true)
+	{
+		/* LAYER 2: The directory */
+		/* Same as first layer, but for the directory */
+		for(; dcond; current_dir = "", dcond = false)
+		{
+			/* LAYER 3: All files */
+			/* Files that do not match the current extension or directory are skipped */
+			/* First iteration sets the current extension and current directory if either are an empty string */
+			/* Files that are written to the disk are removed from the _files list */
+			for(auto it = _files.begin(); it != _files.end(); ++it)
+			{
+				vpk1_file_t& _item = *it;
+				if(_item.written) continue;
+
+				/* Set default ext, if not set */
+				if(current_ext == "") current_ext = _item.extension;
+				if(_item.extension != current_ext) continue;
+
+				/* Set the directory, if not set */
+				if(current_dir == "") current_dir = _item.directory;
+				if(_item.directory != current_dir) continue;
+				++files_written;
+				
+				/* Signal that we've not yet run out of files */
+				dcond = true;
+				_item.written = true;
+			
+				/* Write the file name */
+
+				/* Write the file to the VPK directory */
+				//printf("%s/%s.%s\n", _item.directory.c_str(), _item.name.c_str(), _item.extension.c_str());
+				/* Remove the file from the list */
+				//_files.erase(it);
+			}
+
+			/* NULL terminator for the directory entry */
+			fs.put('\0');
+		}
+
+		if(_files.size() == files_written) break;
+		/* NULL terminator for the extension */
+		fs.put('\0');
+	}
+
+	/* Write the header now */
+
+	printf("Write %u files\n", files_written);
+
+	return true;
+
 }
