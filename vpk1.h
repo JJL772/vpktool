@@ -52,6 +52,7 @@ struct vpk1_file_t
 	
 	vpk1_file_t()
 	{
+		preload = nullptr;
 		dirty = false;
 		written = false;
 	}
@@ -63,6 +64,10 @@ private:
 	bool readonly;
 	std::vector<vpk1_file_t> files;
 	std::string base_archive_name;	
+
+	/* Keep track of the archives on disk */
+	int num_archives;
+	size_t* archive_sizes;
 
 	CVPK1Archive();
 public:
@@ -115,7 +120,7 @@ public:
 	 * @param file Path to the file on disk
 	 * @return true if successful
 	 */ 
-	bool AddFile(std::string name, std::string path);
+	bool AddFile(std::string name, std::string path, bool immediate = false);
 
 	/**
 	 * @brief Reads the specified file's data into a memory buffer

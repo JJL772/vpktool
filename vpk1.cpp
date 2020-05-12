@@ -34,7 +34,9 @@ bool IsVPK1(std::string file)
 
 CVPK1Archive::CVPK1Archive() :
 	readonly(false),
-	last_error(EError::NONE)
+	last_error(EError::NONE),
+	num_archives(0),
+	archive_sizes(nullptr)
 {
 
 }
@@ -108,13 +110,29 @@ CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, bool readonly)
 				_file.name = file;
 				_file.dirent = dirent;
 				_file.full_file = _file.directory + "/" + _file.name + "." + _file.extension;
-				pArch->files.push_back(_file);
 			
 				/* preload bytes follow the directory entry */
 				if(_file.dirent.preload_bytes > 0)
 				{
 					_file.preload = malloc(dirent.preload_bytes);
 					fs.read((char*)_file.preload, dirent.preload_bytes);
+				}
+
+				pArch->files.push_back(_file);
+				
+				/* Update the size of each archive */
+				if(_file.dirent.archive_index > pArch->num_archives)
+				{
+					pArch->num_archives = _file.dirent.archive_index + 1;
+					pArch->archive_sizes = (size_t*)realloc(pArch->archive_sizes, pArch->num_archives);
+					pArch->archive_sizes[_file.dirent.archive_index] = _file.dirent.entry_offset + _file.dirent.entry_length;
+				}
+				/* Compute new max for the archive */
+				else
+				{
+					int index = _file.dirent.archive_index;
+					size_t sz = _file.dirent.entry_offset + _file.dirent.entry_length;
+					pArch->archive_sizes[index] = sz > pArch->archive_sizes[index] ? sz : pArch->archive_sizes[index];
 				}
 
 				*file = 0;
@@ -138,8 +156,16 @@ bool CVPK1Archive::RemoveFile(std::string file)
 	return false;
 }
 
-bool CVPK1Archive::AddFile(std::string name, std::string fondisk)
+bool CVPK1Archive::AddFile(std::string name, std::string fondisk, bool immediate)
 {
+	if(immediate)
+	{
+
+	}
+	else
+	{
+
+	}
 	return false;
 }
 
@@ -234,7 +260,9 @@ bool CVPK1Archive::Write(std::string str)
 		return false;
 	}
 
-	/* Write a temporary header */
+	/* Write the file header */
+	fs.write((char*)&this->header, sizeof(vpk1_header_t));
+
 
 	/* Basically inverse of the loop used to parse the VPK
 	 * First layer is  the extension
@@ -266,33 +294,61 @@ bool CVPK1Archive::Write(std::string str)
 				if(_item.written) continue;
 
 				/* Set default ext, if not set */
-				if(current_ext == "") current_ext = _item.extension;
+				if(current_ext == "")
+				{
+					current_ext = _item.extension;
+					/* Write out extension and null terminator */
+					fs.write(current_ext.c_str(), current_ext.size());
+					fs.put('\0');
+				}
 				if(_item.extension != current_ext) continue;
 
 				/* Set the directory, if not set */
-				if(current_dir == "") current_dir = _item.directory;
+				if(current_dir == "")
+				{
+					current_dir = _item.directory;
+					/* Write out the directory */
+					fs.write(current_dir.c_str(), current_dir.size());
+					fs.put('\0');
+				}
 				if(_item.directory != current_dir) continue;
+
 				++files_written;
 				
 				/* Signal that we've not yet run out of files */
 				dcond = true;
 				_item.written = true;
+
+				/* Write the file name & null terminator*/
+				fs.write(_item.name.c_str(), _item.name.size());
+				fs.put('\0');
+
+				/* Ensure that the terminator is ffff */
+				_item.dirent.terminator = 0xFFFF;
+
+				/* Write the directory entry data */
+				fs.write((char*)&_item.dirent, sizeof(vpk1_directory_entry_t));
 			
-				/* Write the file name */
+				if(_item.dirent.preload_bytes > 0 && _item.preload == nullptr)
+				{
+					printf("Error in file!\npreload_bytes=%u\n", _item.dirent.preload_bytes);
+				}
+
+				/* Write any preload data we might have */
+				if(_item.dirent.preload_bytes > 0 && _item.preload)
+					fs.write((char*)_item.preload, _item.dirent.preload_bytes);
 
 				/* Write the file to the VPK directory */
 				//printf("%s/%s.%s\n", _item.directory.c_str(), _item.name.c_str(), _item.extension.c_str());
 				/* Remove the file from the list */
 				//_files.erase(it);
 			}
-
 			/* NULL terminator for the directory entry */
 			fs.put('\0');
 		}
-
-		if(_files.size() == files_written) break;
 		/* NULL terminator for the extension */
 		fs.put('\0');
+		if(_files.size() == files_written) break;
 	}
 
 	/* Write the header now */
@@ -300,5 +356,5 @@ bool CVPK1Archive::Write(std::string str)
 	printf("Write %u files\n", files_written);
 
 	return true;
-
 }
+
