@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "vpk1.h"
+#include "vpk.h"
 
 void show_help(int exit_code = 1);
 
@@ -34,6 +35,7 @@ int main(int argc, char** argv)
 	std::unordered_map<std::string, std::string> add_items;
 	std::vector<std::string> delete_items;
 	std::unordered_map<std::string, std::string> extract_items;
+	bool modified = false;
 
 	for(int i = 0; i < argc; i++)
 	{
@@ -105,7 +107,7 @@ int main(int argc, char** argv)
 				show_help(1);
 			}
 		}
-		else if(i == argc-1)
+		else if(i == argc-1 && i > 0)
 		{
 			file = arg;
 		}
@@ -114,11 +116,29 @@ int main(int argc, char** argv)
 	/* Spew errors if no file is specified */
 	if(file == "") show_help(1);
 
-	/* Determine the file type */
-	VERBOSE_LOG("Checking file type.\n");
-	unsigned vpk_version = 0;
-	if(IsVPK1(file)) vpk_version = 1;
-	VERBOSE_LOG("File type is %u\n", vpk_version);
+	std::filesystem::path filepath(file);
+
+	if(!std::filesystem::exists(filepath))
+	{
+		printf("File %s does not exist\n", filepath.c_str());
+		exit(1);
+	}
+
+        int vpk_version = libvpk::GetVPKVersion(file);
+
+	/* Check if invalid */
+	if(vpk_version == -1)
+	{
+		printf("File %s is not a VPK File\n");
+		exit(1);
+	}
+
+	/* Check if it's an unsupported version */
+	if(vpk_version != 1 && vpk_version != 2)
+	{
+		printf("Unsupported VPK version\n");
+		exit(1);
+	}
 
 	switch(vpk_version)
 	{
@@ -137,7 +157,6 @@ int main(int argc, char** argv)
 		if(op & OP_INFO)
 		{
 			archive->DumpInfo(stdout);
-			archive->Write();
 		}
 
 		/* Handle deletions */
@@ -147,6 +166,7 @@ int main(int argc, char** argv)
 			{
 				archive->RemoveFile(item);
 			}
+			modified = true;
 		}
 
 		/* Handle additions */
@@ -156,6 +176,7 @@ int main(int argc, char** argv)
 			{
 				archive->AddFile(item.first, item.second);
 			}
+			modified = true;
 		}
 
 		/* List files */
@@ -191,6 +212,10 @@ int main(int argc, char** argv)
 					printf("Failed to extract %s\n", x.first.c_str());
 			}
 		}
+
+		/* If the VPK has been modified, let's write it */
+		if(modified)
+			archive->Write();
 		
 	}
 

@@ -12,6 +12,8 @@
 #include <iostream>
 #include <unordered_map>
 
+using namespace libvpk;
+
 bool IsVPK1(std::string file)
 {
 	std::ifstream fs(file);
@@ -46,11 +48,12 @@ CVPK1Archive::~CVPK1Archive()
 	
 }
 
-CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, bool readonly)
+CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, vpk1_settings_t settings)
 {
 	CVPK1Archive* pArch = new CVPK1Archive();
 
-	pArch->readonly = readonly;
+	pArch->readonly = settings.readonly;
+	pArch->settings = settings;
 
 	std::ifstream fs(archive);
 
@@ -114,10 +117,21 @@ CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, bool readonly)
 				/* preload bytes follow the directory entry */
 				if(_file.dirent.preload_bytes > 0)
 				{
-					_file.preload = malloc(dirent.preload_bytes);
-					fs.read((char*)_file.preload, dirent.preload_bytes);
+					/* Only store the preload data if we really want it */
+					if (pArch->settings.keep_preload_data)
+					{
+						_file.preload = malloc(dirent.preload_bytes);
+						fs.read((char *) _file.preload, dirent.preload_bytes);
+					}
+					else
+					{
+						/* ...otherwise, skip the preload data */
+						fs.seekg(dirent.preload_bytes, std::ios_base::cur);
+						_file.preload = nullptr;
+					}
 				}
 
+				/* Save the file */
 				pArch->files.push_back(_file);
 				
 				/* Update the size of each archive */
