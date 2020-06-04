@@ -15,6 +15,10 @@ namespace libvpk
 {
 	static const unsigned int VPKSignature = 0x55AA1234;
 
+	static const unsigned int kb = 1024;
+	static const unsigned int mb = kb * 1024;
+	static const unsigned int gb = mb * 1024;
+
 	/* Basic VPK header */
 #pragma pack(1)
 	struct basic_vpk_hdr_t
@@ -44,4 +48,8 @@ namespace libvpk
 	 * @return version of vpk or -1 if not found
 	 */
 	int GetVPKVersion(std::ifstream& stream);
+
+	/* Public domain CRC32 code from http://home.thep.lu.se/~bjorn/crc/ */
+	void crc32(const void *data, size_t n_bytes, uint32_t* crc);
+	uint32_t crc32(const void* data, size_t sz);
 }

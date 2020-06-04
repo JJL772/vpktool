@@ -10,12 +10,14 @@
 #include <vector>
 #include <string>
 
+#include "vpk.h"
+
 namespace libvpk
 {
 
 	static const unsigned int VPK1Signature = 0x55AA1234;
 	static const unsigned int VPK1Version = 1;
-
+	static const unsigned short VPK1Terminator = 0xffff;
 
 #pragma pack(1)
 
@@ -34,6 +36,16 @@ namespace libvpk
 		unsigned int entry_offset;
 		unsigned int entry_length;
 		unsigned short terminator;
+
+		vpk1_directory_entry_t()
+		{
+			terminator = VPK1Terminator;
+			crc = 0;
+			preload_bytes = 0;
+			archive_index = 0;
+			entry_offset = 0;
+			entry_length = 0;
+		}
 	};
 
 #pragma pack()
@@ -45,10 +57,11 @@ namespace libvpk
 		std::string directory;
 		std::string extension;
 		std::string full_file;
+		std::string srcfile;
 		void *preload;
 		vpk1_directory_entry_t dirent;
 		/* Some flags we will use */
-		bool dirty: 1; /* Indicates if the file has been modified in code, but not on disk */
+		bool dirty: 1;
 		bool written: 1; /* Indicates if the file has been written (used in Write function) */
 
 		vpk1_file_t()
@@ -70,10 +83,18 @@ namespace libvpk
 
 		/* Set to true to disable reading */
 		bool readonly;
+
+		/* Archive size budget in bytes
+		 * If adding a file to an archive will cause the archive to be larger than this, then a new archive will be created */
+		size_t size_budget;
+
+		/* If a file is smaller than this, then the data will be written as preload data
+		 * Size is in bytes */
+		size_t max_preload_size;
 	};
 
 	/* Default VPK1 Settings */
-	static const vpk1_settings_t DefaultVPK1Settings = {true, true, true};
+	static const vpk1_settings_t DefaultVPK1Settings = {true, true, true, 512 * mb, 2048};
 
 
 	class CVPK1Archive
@@ -141,7 +162,7 @@ namespace libvpk
 		 * @param file Path to the file on disk
 		 * @return true if successful
 		 */
-		bool AddFile(std::string name, std::string path, bool immediate = false);
+		bool AddFile(std::string name, std::string path);
 
 		/**
 		 * @brief Reads the specified file's data into a memory buffer
