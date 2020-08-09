@@ -392,7 +392,7 @@ bool CVPK1Archive::Write(std::string str)
 				/* Dirty file data ! */
 				if(_item.dirty && !_item.srcfile.empty())
 				{
-					
+
 				}
 
 				/* Set default ext, if not set */

@@ -6,6 +6,8 @@
 #include "vpk1.h"
 #include "vpk.h"
 
+using namespace libvpk;
+
 void show_help(int exit_code = 1);
 
 #define OP_INFO (1<<0)
@@ -136,7 +138,7 @@ int main(int argc, char** argv)
 	/* Check if it's an unsupported version */
 	if(vpk_version != 1 && vpk_version != 2)
 	{
-		printf("Unsupported VPK version\n");
+		printf("Unsupported VPK version %u for file %s\n", vpk_version, file.c_str());
 		exit(1);
 	}
 
