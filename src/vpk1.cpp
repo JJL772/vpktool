@@ -1,35 +1,30 @@
- //===================================================================
- // file: vpk1.cpp
- // date: 04-05-2020 DD-MM-YYYY
- // author: Jeremy L.
- // purpose: Implementation of VPK1 archive reading/writing
- //=================================================================== 
+//===================================================================
+// file: vpk1.cpp
+// date: 04-05-2020 DD-MM-YYYY
+// author: Jeremy L.
+// purpose: Implementation of VPK1 archive reading/writing
+//===================================================================
 #include "vpk1.h"
 
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <iosfwd>
 #include <iostream>
 #include <unordered_map>
-#include <filesystem>
 
 using namespace libvpk;
 
-CVPK1Archive::CVPK1Archive() :
-	readonly(false),
-	last_error(EError::NONE),
-	num_archives(0),
-	archive_sizes(nullptr)
+CVPK1Archive::CVPK1Archive()
+	: readonly(false), last_error(EError::NONE), num_archives(0),
+	  archive_sizes(nullptr)
 {
-
 }
 
-CVPK1Archive::~CVPK1Archive()
-{
-	
-}
+CVPK1Archive::~CVPK1Archive() {}
 
-CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, vpk1_settings_t settings)
+CVPK1Archive* CVPK1Archive::ReadArchive(std::string	archive,
+					vpk1_settings_t settings)
 {
 	CVPK1Archive* pArch = new CVPK1Archive();
 
@@ -38,7 +33,7 @@ CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, vpk1_settings_t set
 
 	std::ifstream fs(archive);
 
-	if(!fs.good()) 
+	if (!fs.good())
 	{
 		pArch->last_error = EError::FILE_NOT_FOUND;
 		return pArch;
@@ -47,24 +42,24 @@ CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, vpk1_settings_t set
 	fs.read((char*)&pArch->header, sizeof(vpk1_header_t));
 
 	/* Verify the signature is OK */
-	if(pArch->header.signature != VPK1Signature)
+	if (pArch->header.signature != VPK1Signature)
 	{
 		pArch->last_error = EError::INVALID_SIG;
 		return pArch;
 	}
 
 	/* Verify that the version is 1 */
-	if(pArch->header.version != VPK1Version)
+	if (pArch->header.version != VPK1Version)
 	{
 		pArch->last_error = EError::WRONG_VERSION;
 		return pArch;
 	}
 
 	/* Try to get the base archive name based on what we've been passed
-	 * for example, the base name would be pak001 in pak001_dir.vpk 
+	 * for example, the base name would be pak001 in pak001_dir.vpk
 	 * Should just be able to replace the _dir.vpk with "" */
-	pArch->base_archive_name = archive.replace(archive.find("_dir.vpk"), archive.size(), "");
-	
+	pArch->base_archive_name =
+		archive.replace(archive.find("_dir.vpk"), archive.size(), "");
 
 	/* Bulk of the data processing is here.
 	 * First layer of the loop will go through the file extensions
@@ -73,15 +68,15 @@ CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, vpk1_settings_t set
 	char ext[32];
 	char dir[300]; /* Keep this above 260 (the max path for windurs */
 	char file[300];
-	
+
 	/* Loop through all file extensions */
-	for(; fs.getline(ext, sizeof(ext), '\0') && ext[0]; )
+	for (; fs.getline(ext, sizeof(ext), '\0') && ext[0];)
 	{
 		/* Loop through all directories */
-		for(; fs.getline(dir, sizeof(dir), '\0') && dir[0]; )
+		for (; fs.getline(dir, sizeof(dir), '\0') && dir[0];)
 		{
 			/* Loop through all files */
-			for(; fs.getline(file, sizeof(dir), '\0') && file[0]; )
+			for (; fs.getline(file, sizeof(dir), '\0') && file[0];)
 			{
 				/* VPK dir entry info */
 				vpk1_directory_entry_t dirent;
@@ -91,43 +86,62 @@ CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, vpk1_settings_t set
 				vpk1_file_t _file;
 				_file.directory = dir;
 				_file.extension = ext;
-				_file.name = file;
-				_file.dirent = dirent;
-				_file.full_file = _file.directory + "/" + _file.name + "." + _file.extension;
-			
+				_file.name	= file;
+				_file.dirent	= dirent;
+				_file.full_file = _file.directory + "/" +
+						  _file.name + "." +
+						  _file.extension;
+
 				/* preload bytes follow the directory entry */
-				if(_file.dirent.preload_bytes > 0)
+				if (_file.dirent.preload_bytes > 0)
 				{
-					/* Only store the preload data if we really want it */
+					/* Only store the preload data if we
+					 * really want it */
 					if (pArch->settings.keep_preload_data)
 					{
-						_file.preload = malloc(dirent.preload_bytes);
-						fs.read((char *) _file.preload, dirent.preload_bytes);
+						_file.preload = malloc(
+							dirent.preload_bytes);
+						fs.read((char*)_file.preload,
+							dirent.preload_bytes);
 					}
 					else
 					{
-						/* ...otherwise, skip the preload data */
-						fs.seekg(dirent.preload_bytes, std::ios_base::cur);
+						/* ...otherwise, skip the
+						 * preload data */
+						fs.seekg(dirent.preload_bytes,
+							 std::ios_base::cur);
 						_file.preload = nullptr;
 					}
 				}
 
 				/* Save the file */
 				pArch->files.push_back(_file);
-				
+
 				/* Update the size of each archive */
-				if(_file.dirent.archive_index > pArch->num_archives)
+				if (_file.dirent.archive_index >
+				    pArch->num_archives)
 				{
-					pArch->num_archives = _file.dirent.archive_index + 1;
-					pArch->archive_sizes = (size_t*)realloc(pArch->archive_sizes, pArch->num_archives);
-					pArch->archive_sizes[_file.dirent.archive_index] = _file.dirent.entry_offset + _file.dirent.entry_length;
+					pArch->num_archives =
+						_file.dirent.archive_index + 1;
+					pArch->archive_sizes = (size_t*)realloc(
+						pArch->archive_sizes,
+						pArch->num_archives);
+					pArch->archive_sizes
+						[_file.dirent.archive_index] =
+						_file.dirent.entry_offset +
+						_file.dirent.entry_length;
 				}
 				/* Compute new max for the archive */
 				else
 				{
 					int index = _file.dirent.archive_index;
-					size_t sz = _file.dirent.entry_offset + _file.dirent.entry_length;
-					pArch->archive_sizes[index] = sz > pArch->archive_sizes[index] ? sz : pArch->archive_sizes[index];
+					size_t sz = _file.dirent.entry_offset +
+						    _file.dirent.entry_length;
+					pArch->archive_sizes[index] =
+						sz > pArch->archive_sizes[index]
+							? sz
+							: pArch->archive_sizes
+								  [index];
 				}
 
 				*file = 0;
@@ -142,15 +156,18 @@ CVPK1Archive* CVPK1Archive::ReadArchive(std::string archive, vpk1_settings_t set
 
 void CVPK1Archive::DumpInfo(FILE* fs)
 {
-	fprintf(fs, "Signature: 0x%X\nVersion: %u\nTotal Size: %u\nNumber of files: %lu\n",
-			header.signature, header.version, header.treesize, files.size());
+	fprintf(fs,
+		"Signature: 0x%X\nVersion: %u\nTotal Size: %u\nNumber of "
+		"files: %lu\n",
+		header.signature, header.version, header.treesize,
+		files.size());
 }
 
 bool CVPK1Archive::RemoveFile(std::string file)
 {
-	for(auto it = files.begin(); it != files.end(); it++)
+	for (auto it = files.begin(); it != files.end(); it++)
 	{
-		if(it->full_file == file)
+		if (it->full_file == file)
 		{
 			files.erase(it);
 			return true;
@@ -164,36 +181,38 @@ bool CVPK1Archive::AddFile(std::string name, std::string fondisk)
 	/* First thing to do is get the size of the file */
 	std::filesystem::path filepath(fondisk);
 	std::filesystem::path destfile(name);
-	auto filesize = std::filesystem::file_size(filepath);
+	auto		      filesize = std::filesystem::file_size(filepath);
 
-	/* Next, check if we can just throw this in the dir vpk as preload data */
-	if(filesize <= this->settings.max_preload_size)
+	/* Next, check if we can just throw this in the dir vpk as preload data
+	 */
+	if (filesize <= this->settings.max_preload_size)
 	{
-		vpk1_file_t _file;
+		vpk1_file_t	       _file;
 		vpk1_directory_entry_t dirent;
 
 		/* Read file data into a buffer */
-		void* fdat = malloc(filesize);
+		void*	      fdat = malloc(filesize);
 		std::ifstream fs(fondisk);
-		if(!fs.good()) return false;
+		if (!fs.good())
+			return false;
 		fs.read((char*)fdat, filesize);
 		fs.close();
 
 		/* Dirent stuff is mostly 0 */
 		dirent.archive_index = 0;
-		dirent.entry_length = 0;
-		dirent.entry_offset = 0;
+		dirent.entry_length  = 0;
+		dirent.entry_offset  = 0;
 		dirent.preload_bytes = filesize;
-		dirent.terminator = VPK1Terminator;
-		dirent.crc = crc32(fdat, filesize);
+		dirent.terminator    = VPK1Terminator;
+		dirent.crc	     = crc32(fdat, filesize);
 
-		_file.dirent = dirent;
+		_file.dirent  = dirent;
 		_file.preload = fdat;
 		_file.written = false;
 		_file.dirty = false; /* Not actually dirty, just not written */
 		_file.full_file = name;
 		_file.extension = destfile.extension().string();
-		_file.name = destfile.filename().string();
+		_file.name	= destfile.filename().string();
 		_file.directory = destfile.parent_path().string();
 		_file.full_file = name;
 
@@ -203,31 +222,31 @@ bool CVPK1Archive::AddFile(std::string name, std::string fondisk)
 
 	/* TODO: Reduce code duplication here */
 
-	for(int i = 0; i < this->num_archives; i++)
+	for (int i = 0; i < this->num_archives; i++)
 	{
 		size_t arch_size = this->archive_sizes[i];
 
 		/* Add it to this archive if we've not exceeded the budget */
-		if(arch_size + filesize <= this->settings.size_budget)
+		if (arch_size + filesize <= this->settings.size_budget)
 		{
-			vpk1_file_t _file;
+			vpk1_file_t	       _file;
 			vpk1_directory_entry_t dirent = {};
 
 			dirent.archive_index = i;
-			dirent.entry_length = filesize;
-			dirent.entry_offset = arch_size;
-			dirent.terminator = VPK1Terminator;
+			dirent.entry_length  = filesize;
+			dirent.entry_offset  = arch_size;
+			dirent.terminator    = VPK1Terminator;
 			dirent.preload_bytes = 0;
-			dirent.crc = 0; /* Calculated later */
+			dirent.crc	     = 0; /* Calculated later */
 
-			_file.dirent = dirent;
-			_file.dirty = true;
-			_file.written = false;
+			_file.dirent	= dirent;
+			_file.dirty	= true;
+			_file.written	= false;
 			_file.directory = destfile.parent_path().string();
-			_file.name = destfile.filename().string();
+			_file.name	= destfile.filename().string();
 			_file.extension = destfile.extension().string();
-			_file.preload = nullptr;
-			_file.srcfile = fondisk;
+			_file.preload	= nullptr;
+			_file.srcfile	= fondisk;
 			_file.full_file = name;
 
 			this->files.push_back(_file);
@@ -238,26 +257,27 @@ bool CVPK1Archive::AddFile(std::string name, std::string fondisk)
 
 	/* Can't fit it in an existing archive...create a new one */
 	this->num_archives++;
-	this->archive_sizes = (size_t*)realloc(this->archive_sizes, this->num_archives);
+	this->archive_sizes =
+		(size_t*)realloc(this->archive_sizes, this->num_archives);
 
-	vpk1_file_t _file;
+	vpk1_file_t	       _file;
 	vpk1_directory_entry_t dirent = {};
 
-	dirent.archive_index = this->num_archives-1;
+	dirent.archive_index = this->num_archives - 1;
 	dirent.preload_bytes = 0;
-	dirent.terminator = VPK1Terminator;
-	dirent.entry_length = filesize;
-	dirent.entry_offset = 0;
-	dirent.crc = 0;
+	dirent.terminator    = VPK1Terminator;
+	dirent.entry_length  = filesize;
+	dirent.entry_offset  = 0;
+	dirent.crc	     = 0;
 
-	_file.dirent = dirent;
-	_file.dirty = true;
-	_file.written = false;
+	_file.dirent	= dirent;
+	_file.dirty	= true;
+	_file.written	= false;
 	_file.directory = destfile.parent_path().string();
-	_file.name = destfile.filename().string();
+	_file.name	= destfile.filename().string();
 	_file.extension = destfile.extension().string();
-	_file.preload = nullptr;
-	_file.srcfile = fondisk;
+	_file.preload	= nullptr;
+	_file.srcfile	= fondisk;
 	_file.full_file = name;
 
 	this->files.push_back(_file);
@@ -273,62 +293,82 @@ const std::vector<vpk1_file_t>& CVPK1Archive::GetFiles() const
 bool CVPK1Archive::ExtractFile(std::string file, std::string dest)
 {
 	/* Find the file to extract */
-	for(auto _file : this->files)
+	for (auto _file : this->files)
 	{
-		if(_file.full_file == file)
+		if (_file.full_file == file)
 		{
-			/* Only read from the paks if the entry length is larger than 0 */
-			if(_file.dirent.entry_length > 0 && _file.preload != nullptr)
+			/* Only read from the paks if the entry length is larger
+			 * than 0 */
+			if (_file.dirent.entry_length > 0 &&
+			    _file.preload != nullptr)
 			{
 				/* Open the archive for reading */
 				char num[16];
-				snprintf(num, sizeof(num), "%03i", _file.dirent.archive_index);
-				printf("%s", (this->base_archive_name + "_" + std::string(num) + ".vpk").c_str());
-				std::fstream fs(this->base_archive_name + "_" + std::string(num) + ".vpk", 
-						std::ios_base::in | std::ios_base::binary);
-			
-				if(!fs.good()) return false;
+				snprintf(num, sizeof(num), "%03i",
+					 _file.dirent.archive_index);
+				printf("%s", (this->base_archive_name + "_" +
+					      std::string(num) + ".vpk")
+						     .c_str());
+				std::fstream fs(this->base_archive_name + "_" +
+							std::string(num) +
+							".vpk",
+						std::ios_base::in |
+							std::ios_base::binary);
 
-				fs.seekg(_file.dirent.entry_offset, std::ios_base::beg);
-				
+				if (!fs.good())
+					return false;
+
+				fs.seekg(_file.dirent.entry_offset,
+					 std::ios_base::beg);
+
 				/* Read data and close the stream */
-				void* tmpbuf = malloc(_file.dirent.entry_length);
-				fs.read((char*)tmpbuf, _file.dirent.entry_length);
+				void* tmpbuf =
+					malloc(_file.dirent.entry_length);
+				fs.read((char*)tmpbuf,
+					_file.dirent.entry_length);
 
 				fs.close();
 
 				/* Try to open the output */
-				fs.open(dest, std::ios_base::out | std::ios_base::binary);
+				fs.open(dest, std::ios_base::out |
+						      std::ios_base::binary);
 
-				if(!fs.good())
+				if (!fs.good())
 				{
 					fs.close();
 					free(tmpbuf);
 					return false;
 				}
 
-				/* Write the preload bytes first, if applicable */
-				if(_file.dirent.preload_bytes > 0)
-					fs.write((char*)_file.preload, _file.dirent.preload_bytes);
+				/* Write the preload bytes first, if applicable
+				 */
+				if (_file.dirent.preload_bytes > 0)
+					fs.write((char*)_file.preload,
+						 _file.dirent.preload_bytes);
 
 				/* Write the buffer to the dest */
-				fs.write((char*)tmpbuf, _file.dirent.entry_length);
+				fs.write((char*)tmpbuf,
+					 _file.dirent.entry_length);
 				fs.flush();
 
 				fs.close();
 				return true;
 			}
-			/* An entry length of 0 means it's all contained within the preload */
+			/* An entry length of 0 means it's all contained within
+			 * the preload */
 			else
 			{
-				std::fstream fs(dest, std::ios_base::out | std::ios_base::binary);
+				std::fstream fs(dest,
+						std::ios_base::out |
+							std::ios_base::binary);
 
-				if(!fs.good())
+				if (!fs.good())
 				{
 					return false;
 				}
 
-				fs.write((char*)_file.preload, _file.dirent.preload_bytes);
+				fs.write((char*)_file.preload,
+					 _file.dirent.preload_bytes);
 
 				fs.flush();
 				fs.close();
@@ -336,7 +376,6 @@ bool CVPK1Archive::ExtractFile(std::string file, std::string dest)
 				return true;
 			}
 		}
-		
 	}
 	return false;
 }
@@ -344,13 +383,13 @@ bool CVPK1Archive::ExtractFile(std::string file, std::string dest)
 bool CVPK1Archive::Write(std::string str)
 {
 	std::string file;
-	if(str == "")
+	if (str == "")
 		file = this->base_archive_name + "_dir.vpk";
 
 	/* Create the stream */
 	std::fstream fs(file, std::ios_base::binary | std::ios_base::out);
 
-	if(!fs.good())
+	if (!fs.good())
 	{
 		fs.close();
 		return false;
@@ -359,66 +398,74 @@ bool CVPK1Archive::Write(std::string str)
 	/* Write the file header */
 	fs.write((char*)&this->header, sizeof(vpk1_header_t));
 
-
 	/* Basically inverse of the loop used to parse the VPK
 	 * First layer is  the extension
 	 * Next layer is  the directory
 	 * Final layer is the file itself */
 	std::string current_ext = "";
 	std::string current_dir = "";
-	bool found = false;
+	bool	    found	= false;
 
 	std::vector<vpk1_file_t> _files = this->files;
-	bool dcond = true, econd = true;
-	int files_written = 0;
+	bool			 dcond = true, econd = true;
+	int			 files_written = 0;
 
 	/* LAYER 1: The file extension */
-	/* This is an infinite loop that resets the current extension to "" after each iteration */
-	for(; ; current_ext = "", econd = false, dcond = true)
+	/* This is an infinite loop that resets the current extension to ""
+	 * after each iteration */
+	for (;; current_ext = "", econd = false, dcond = true)
 	{
 		/* LAYER 2: The directory */
 		/* Same as first layer, but for the directory */
-		for(; dcond; current_dir = "", dcond = false)
+		for (; dcond; current_dir = "", dcond = false)
 		{
 			/* LAYER 3: All files */
-			/* Files that do not match the current extension or directory are skipped */
-			/* First iteration sets the current extension and current directory if either are an empty string */
-			/* Files that are written to the disk are removed from the _files list */
-			for(auto it = _files.begin(); it != _files.end(); ++it)
+			/* Files that do not match the current extension or
+			 * directory are skipped */
+			/* First iteration sets the current extension and
+			 * current directory if either are an empty string */
+			/* Files that are written to the disk are removed from
+			 * the _files list */
+			for (auto it = _files.begin(); it != _files.end(); ++it)
 			{
 				vpk1_file_t& _item = *it;
-				if(_item.written) continue;
+				if (_item.written)
+					continue;
 
 				/* Dirty file data ! */
-				if(_item.dirty && !_item.srcfile.empty())
+				if (_item.dirty && !_item.srcfile.empty())
 				{
-
 				}
 
 				/* Set default ext, if not set */
-				if(current_ext == "")
+				if (current_ext == "")
 				{
 					current_ext = _item.extension;
-					/* Write out extension and null terminator */
-					fs.write(current_ext.c_str(), current_ext.size());
+					/* Write out extension and null
+					 * terminator */
+					fs.write(current_ext.c_str(),
+						 current_ext.size());
 					fs.put('\0');
 				}
-				if(_item.extension != current_ext) continue;
+				if (_item.extension != current_ext)
+					continue;
 
 				/* Set the directory, if not set */
-				if(current_dir == "")
+				if (current_dir == "")
 				{
 					current_dir = _item.directory;
 					/* Write out the directory */
-					fs.write(current_dir.c_str(), current_dir.size());
+					fs.write(current_dir.c_str(),
+						 current_dir.size());
 					fs.put('\0');
 				}
-				if(_item.directory != current_dir) continue;
+				if (_item.directory != current_dir)
+					continue;
 
 				++files_written;
-				
+
 				/* Signal that we've not yet run out of files */
-				dcond = true;
+				dcond	      = true;
 				_item.written = true;
 
 				/* Write the file name & null terminator*/
@@ -429,19 +476,26 @@ bool CVPK1Archive::Write(std::string str)
 				_item.dirent.terminator = 0xFFFF;
 
 				/* Write the directory entry data */
-				fs.write((char*)&_item.dirent, sizeof(vpk1_directory_entry_t));
-			
-				if(_item.dirent.preload_bytes > 0 && _item.preload == nullptr)
+				fs.write((char*)&_item.dirent,
+					 sizeof(vpk1_directory_entry_t));
+
+				if (_item.dirent.preload_bytes > 0 &&
+				    _item.preload == nullptr)
 				{
-					printf("Error in file!\npreload_bytes=%u\n", _item.dirent.preload_bytes);
+					printf("Error in "
+					       "file!\npreload_bytes=%u\n",
+					       _item.dirent.preload_bytes);
 				}
 
 				/* Write any preload data we might have */
-				if(_item.dirent.preload_bytes > 0 && _item.preload)
-					fs.write((char*)_item.preload, _item.dirent.preload_bytes);
+				if (_item.dirent.preload_bytes > 0 &&
+				    _item.preload)
+					fs.write((char*)_item.preload,
+						 _item.dirent.preload_bytes);
 
 				/* Write the file to the VPK directory */
-				//printf("%s/%s.%s\n", _item.directory.c_str(), _item.name.c_str(), _item.extension.c_str());
+				// printf("%s/%s.%s\n", _item.directory.c_str(),
+				// _item.name.c_str(), _item.extension.c_str());
 				/* Remove the file from the list */
 				//_files.erase(it);
 			}
@@ -450,7 +504,8 @@ bool CVPK1Archive::Write(std::string str)
 		}
 		/* NULL terminator for the extension */
 		fs.put('\0');
-		if(_files.size() == files_written) break;
+		if (_files.size() == files_written)
+			break;
 	}
 
 	/* Write the header now */
@@ -459,4 +514,3 @@ bool CVPK1Archive::Write(std::string str)
 
 	return true;
 }
-
