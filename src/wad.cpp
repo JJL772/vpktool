@@ -19,7 +19,6 @@ CWADArchive::~CWADArchive()
 	if (m_fileHandle)
 		fclose(m_fileHandle);
 	m_fileHandle = nullptr;
-	m_files.clear();
 }
 
 CWADArchive* CWADArchive::read(std::string path, wad_settings_t settings)

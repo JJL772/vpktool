@@ -44,6 +44,8 @@ struct archive_file_t
 class IBaseArchive
 {
 public:
+	virtual ~IBaseArchive() {};
+
 	/* Returns a full list of the files in the archvie */
 	virtual const std::vector<archive_file_t>& get_files() const = 0;
 

@@ -42,7 +42,7 @@ private:
 
 public:
 	explicit CWADArchive(wad_settings_t settings = g_DefaultWadSettings);
-	~CWADArchive();
+	virtual ~CWADArchive();
 
 	static CWADArchive* read(std::string path, wad_settings_t settings = g_DefaultWadSettings);
 
