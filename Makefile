@@ -9,7 +9,7 @@ FLAGS += --std=c++17 -fno-exceptions -g
 
 all:
 	mkdir -p bin 
-	$(CXX) $(FLAGS) -o bin/vpktool $(wildcard src/*.cpp)
+	$(CXX) $(FLAGS) -o bin/vpktool $(wildcard src/*.cpp) $(wildcard src/*.c)
 
 rebuild: clean all 
 

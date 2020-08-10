@@ -1,17 +1,19 @@
 
 #include "vpk.h"
+#include "wad.h"
 
 #include <fstream>
+#include <memory.h>
 
-int libvpk::GetVPKVersion(std::filesystem::path path)
+int libvpk::get_vpk_version(std::filesystem::path path)
 {
 	std::ifstream fs(path);
-	int	      ver = GetVPKVersion(fs);
+	int	      ver = get_vpk_version(fs);
 	fs.close();
 	return ver;
 }
 
-int libvpk::GetVPKVersion(FILE* stream)
+int libvpk::get_vpk_version(FILE* stream)
 {
 	fseek(stream, 0, SEEK_SET);
 	basic_vpk_hdr_t hdr;
@@ -20,7 +22,7 @@ int libvpk::GetVPKVersion(FILE* stream)
 	return hdr.version;
 }
 
-int libvpk::GetVPKVersion(std::ifstream& stream)
+int libvpk::get_vpk_version(std::ifstream& stream)
 {
 	stream.seekg(0);
 	basic_vpk_hdr_t hdr;
@@ -51,4 +53,38 @@ uint32_t libvpk::crc32(const void* dat, size_t n)
 	uint32_t out = 0;
 	crc32(dat, n, &out);
 	return out;
+}
+
+void libvpk::determine_file_type(std::filesystem::path path, bool& vpk1, bool& vpk2, bool& wad)
+{
+	FILE* fs = fopen(path.c_str(), "rb");
+	determine_file_type(fs, vpk1, vpk2, wad);
+}
+
+void libvpk::determine_file_type(std::ifstream& stream, bool& vpk1, bool& vpk2, bool& wad)
+{
+	basic_vpk_hdr_t hdr;
+	stream.read((char*)&hdr, sizeof(basic_vpk_hdr_t));
+	vpk1 = vpk2 = wad = false;
+	if(hdr.signature == VPKSignature)
+	{
+		if(hdr.version == 1) vpk1 = true;
+		else if(hdr.version == 2) vpk2 = true;
+	}
+	else if(memcmp(&hdr.signature, PWADSignature, 4) == 0 || memcmp(&hdr.signature, IWADSignature, 4) == 0)
+		wad = true;
+}
+
+void libvpk::determine_file_type(FILE* stream, bool& vpk1, bool& vpk2, bool& wad)
+{
+	basic_vpk_hdr_t hdr;
+	fread(&hdr, sizeof(basic_vpk_hdr_t), 1, stream);
+	vpk1 = vpk2 = wad = false;
+	if(hdr.signature == VPKSignature)
+	{
+		if(hdr.version == 1) vpk1 = true;
+		else if(hdr.version == 2) vpk2 = true;
+	}
+	else if(memcmp(&hdr.signature, PWADSignature, 4) == 0 || memcmp(&hdr.signature, IWADSignature, 4) == 0)
+		wad = true;
 }

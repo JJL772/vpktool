@@ -5,6 +5,7 @@
 
 #include "vpk.h"
 #include "vpk1.h"
+#include "wad.h"
 
 using namespace libvpk;
 
@@ -22,16 +23,16 @@ void show_help(int exit_code = 1);
 #define FL_VERBOSE (1 << 0)
 #define FL_DEBUG   (1 << 1)
 
-#define CHECK_PARM_INDEX(_i)                                                   \
-	if (i + _i >= argc)                                                    \
-	{                                                                      \
-		printf("%s expected a value, but got none.\n\n", arg);         \
-		show_help(1);                                                  \
+#define CHECK_PARM_INDEX(_i)                                                                                                                         \
+	if (i + _i >= argc)                                                                                                                          \
+	{                                                                                                                                            \
+		printf("%s expected a value, but got none.\n\n", arg);                                                                               \
+		show_help(1);                                                                                                                        \
 	}
-#define VERBOSE_LOG(...)                                                       \
-	if (flags & FL_VERBOSE)                                                \
-	{                                                                      \
-		printf(__VA_ARGS__);                                           \
+#define VERBOSE_LOG(...)                                                                                                                             \
+	if (flags & FL_VERBOSE)                                                                                                                      \
+	{                                                                                                                                            \
+		printf(__VA_ARGS__);                                                                                                                 \
 	}
 
 int main(int argc, char** argv)
@@ -86,8 +87,7 @@ int main(int argc, char** argv)
 				CHECK_PARM_INDEX(2);
 				/* First item: file in vpk. Second: file on disk
 				 */
-				add_items.insert(std::make_pair(argv[i + 1],
-								argv[i + 2]));
+				add_items.insert(std::make_pair(argv[i + 1], argv[i + 2]));
 			}
 			/* -d is used to remove from the vpk */
 			else if (arg[1] == 'd')
@@ -106,8 +106,7 @@ int main(int argc, char** argv)
 			{
 				op |= OP_EXTRACT_SPECIFIC;
 				CHECK_PARM_INDEX(2);
-				extract_items.insert(
-					{argv[i + 1], argv[i + 2]});
+				extract_items.insert({argv[i + 1], argv[i + 2]});
 			}
 			/* -l for listing files */
 			else if (arg[1] == 'l')
@@ -140,111 +139,116 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	int vpk_version = libvpk::GetVPKVersion(file);
+	bool bVPK1, bVPK2, bWAD;
+	libvpk::determine_file_type(file, bVPK1, bVPK2, bWAD);
 
 	/* Check if invalid */
-	if (vpk_version == -1)
+	if (!bVPK1 && !bVPK2 && !bWAD)
 	{
-		printf("File %s is not a VPK File\n");
+		printf("File %s is not a VPK or WAD File\n");
 		exit(1);
 	}
 
-	/* Check if it's an unsupported version */
-	if (vpk_version != 1 && vpk_version != 2)
+	IBaseArchive* archive = nullptr;
+	if (bVPK1)
+		archive = CVPK1Archive::read(file);
+	else if (bWAD)
+		archive = CWADArchive::read(file);
+
+	if(!archive)
 	{
-		printf("Unsupported VPK version %u for file %s\n", vpk_version,
-		       file.c_str());
+		printf("Internal error while reading archive\n");
 		exit(1);
 	}
 
-	switch (vpk_version)
+	/* Check for read errors */
+	if (archive->get_last_error_string() != "")
 	{
-	case 1:
-		CVPK1Archive* archive = CVPK1Archive::ReadArchive(file);
+		printf("Error while reading archive: %s\n", archive->get_last_error_string().c_str());
+		delete archive;
+		exit(1);
+	}
 
-		/* Check for read errors */
-		if (archive->last_error != CVPK1Archive::EError::NONE)
+	/* Display info for VPK, if requested */
+	if (op & OP_INFO)
+	{
+		archive->dump_info(stdout);
+	}
+
+	/* Handle deletions */
+	if (op & OP_DELETE)
+	{
+		for (auto item : delete_items)
 		{
-			printf("Error while reading archive: %s\n",
-			       archive->GetLastErrorString().c_str());
-			delete archive;
-			exit(1);
+			archive->remove_file(item);
 		}
+		modified = true;
+	}
 
-		/* Display info for VPK, if requested */
-		if (op & OP_INFO)
+	/* Handle additions */
+	if (op & OP_ADD)
+	{
+		for (auto item : add_items)
 		{
-			archive->DumpInfo(stdout);
+			archive->add_file(item.first, item.second);
 		}
+		modified = true;
+	}
 
-		/* Handle deletions */
-		if (op & OP_DELETE)
+	/* List files */
+	if (op & OP_LIST && !(op & OP_LIST_INDEPTH))
+	{
+		for (auto x : archive->get_files())
 		{
-			for (auto item : delete_items)
+			/* WAD files do not have directories */
+			if(bVPK1 || bVPK2)
+				printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
+			else
+				printf("%s\n", x.name.c_str());
+		}
+	}
+
+	/* List files in depth */
+	if (op & OP_LIST_INDEPTH)
+	{
+		if (bVPK1)
+		{
+			for (auto x : archive->get_files())
 			{
-				archive->RemoveFile(item);
-			}
-			modified = true;
-		}
-
-		/* Handle additions */
-		if (op & OP_ADD)
-		{
-			for (auto item : add_items)
-			{
-				archive->AddFile(item.first, item.second);
-			}
-			modified = true;
-		}
-
-		/* List files */
-		if (op & OP_LIST && !(op & OP_LIST_INDEPTH))
-		{
-			for (auto x : archive->GetFiles())
-			{
-				printf("%s/%s.%s\n", x.directory.c_str(),
-				       x.name.c_str(), x.extension.c_str());
-			}
-		}
-
-		/* List files in depth */
-		if (op & OP_LIST_INDEPTH)
-		{
-			for (auto x : archive->GetFiles())
-			{
-				printf("%s/%s.%s\n", x.directory.c_str(),
-				       x.name.c_str(), x.extension.c_str());
+				printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
 				printf("\tCRC32: %u 0x%X\n\tArchive: "
 				       "%u\n\tEntry offset: %u\n\tEntry "
 				       "Length: %u\n\tPreload bytes: %u\n",
-				       x.dirent.crc, x.dirent.crc,
-				       x.dirent.archive_index,
-				       x.dirent.entry_offset,
-				       x.dirent.entry_length,
-				       x.dirent.preload_bytes);
+				       x.vpk1->dirent.crc, x.vpk1->dirent.crc, x.vpk1->dirent.archive_index, x.vpk1->dirent.entry_offset,
+				       x.vpk1->dirent.entry_length, x.vpk1->dirent.preload_bytes);
 			}
 		}
-
-		/* Extract */
-		if (op & OP_EXTRACT_SPECIFIC)
+		else if (bWAD)
 		{
-			for (auto x : extract_items)
+			for (auto x : archive->get_files())
 			{
-				bool ret =
-					archive->ExtractFile(x.first, x.second);
-				if (ret)
-					printf("%s -> %s\n", x.first.c_str(),
-					       x.second.c_str());
-				else
-					printf("Failed to extract %s\n",
-					       x.first.c_str());
+				printf("%s\n", x.name.c_str());
+				printf("\tOffset: %u\n\tSize: %u\n", x.offset, x.size);
 			}
 		}
-
-		/* If the VPK has been modified, let's write it */
-		if (modified)
-			archive->Write();
 	}
+
+	/* Extract */
+	if (op & OP_EXTRACT_SPECIFIC)
+	{
+		for (auto x : extract_items)
+		{
+			bool ret = archive->extract_file(x.first, x.second);
+			if (ret)
+				printf("%s -> %s\n", x.first.c_str(), x.second.c_str());
+			else
+				printf("Failed to extract %s\n", x.first.c_str());
+		}
+	}
+
+	/* If the VPK has been modified, let's write it */
+	if (modified)
+		archive->write();
 }
 
 void show_help(int code)

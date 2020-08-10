@@ -33,7 +33,7 @@ struct basic_vpk_hdr_t
  * @param path
  * @return vpk version or -1 if invalid
  */
-int GetVPKVersion(std::filesystem::path path);
+int get_vpk_version(std::filesystem::path path);
 
 /**
  * @brief Returns the version of the VPK. Seeks to the beginning of the stream
@@ -41,7 +41,7 @@ int GetVPKVersion(std::filesystem::path path);
  * @param stream
  * @return vpk version or -1 if invalid
  */
-int GetVPKVersion(FILE* stream);
+int get_vpk_version(FILE* stream);
 
 /**
  * @brief Returns the version of the VPK. Seeks to the beginning of the stream
@@ -49,7 +49,17 @@ int GetVPKVersion(FILE* stream);
  * @param stream
  * @return version of vpk or -1 if not found
  */
-int GetVPKVersion(std::ifstream& stream);
+int get_vpk_version(std::ifstream& stream);
+
+/**
+ * @brief Determines the type of file
+ * @param vpk1 true if a VPK1
+ * @param vpk2 true if a VPK2
+ * @param wad true if a PWAD or IWAD
+ */ 
+void determine_file_type(std::filesystem::path, bool& vpk1, bool& vpk2, bool& wad);
+void determine_file_type(std::ifstream& stream, bool& vpk1, bool& vpk2, bool& wad);
+void determine_file_type(FILE* stream, bool& vpk1, bool& vpk2, bool& wad);
 
 /* Public domain CRC32 code from http://home.thep.lu.se/~bjorn/crc/ */
 void	 crc32(const void* data, size_t n_bytes, uint32_t* crc);

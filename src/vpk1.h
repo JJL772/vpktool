@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "basearchive.h"
 #include "vpk.h"
 
 namespace libvpk
@@ -53,9 +54,6 @@ struct vpk1_directory_entry_t
 /* This structure doesnt actually exist in the file itself */
 struct vpk1_file_t
 {
-	std::string	       name;
-	std::string	       directory;
-	std::string	       extension;
 	std::string	       full_file;
 	std::string	       srcfile;
 	void*		       preload;
@@ -70,6 +68,14 @@ struct vpk1_file_t
 		preload = nullptr;
 		dirty	= false;
 		written = false;
+	}
+
+	static archive_file_t create()
+	{
+		archive_file_t file;
+		file.offset = file.size = 0;
+		file.vpk1		= new vpk1_file_t();
+		return file;
 	}
 };
 
@@ -97,15 +103,14 @@ struct vpk1_settings_t
 };
 
 /* Default VPK1 Settings */
-static const vpk1_settings_t DefaultVPK1Settings = {true, true, true, 512 * mb,
-						    2048};
+static const vpk1_settings_t DefaultVPK1Settings = {true, true, true, 512 * mb, 2048};
 
-class CVPK1Archive
+class CVPK1Archive : public IBaseArchive
 {
-      private:
-	bool			 readonly;
-	std::vector<vpk1_file_t> files;
-	std::string		 base_archive_name;
+private:
+	bool			    readonly;
+	std::vector<archive_file_t> files;
+	std::string		    base_archive_name;
 
 	vpk1_settings_t settings;
 
@@ -113,9 +118,9 @@ class CVPK1Archive
 	int	num_archives;
 	size_t* archive_sizes;
 
+public:
 	CVPK1Archive();
 
-      public:
 	vpk1_header_t header;
 	enum EError
 	{
@@ -127,30 +132,28 @@ class CVPK1Archive
 
 	virtual ~CVPK1Archive();
 
-	static CVPK1Archive*
-	ReadArchive(std::string	    path,
-		    vpk1_settings_t settings = DefaultVPK1Settings);
+	static CVPK1Archive* read(std::string path, vpk1_settings_t settings = DefaultVPK1Settings);
 
 	/* Returns a full list of the files in the archvie */
-	const std::vector<vpk1_file_t>& GetFiles() const;
+	virtual const std::vector<archive_file_t>& get_files() const override { return files; }
 
 	/**
 	 * @brief Removes the specified file from the archive
 	 * @return true if file removed
 	 */
-	bool RemoveFile(std::string file);
+	virtual bool remove_file(std::string file) override;
 
 	/**
 	 * @brief Checks if the specified file exists in the archive
 	 * @return true if found
 	 */
-	bool HasFile(std::string file) const;
+	virtual bool contains(std::string file) const override;
 
 	/**
 	 * @brief Writes all changes to the VPK to the disk
 	 * @return true if successful
 	 */
-	bool Write(std::string filename = "");
+	virtual bool write(std::string filename = "") override;
 
 	/**
 	 * @brief Adds a file to the archive, creating an extra VPK archive if
@@ -161,7 +164,7 @@ class CVPK1Archive
 	 * @param len Length of the data blob
 	 * @return true if successful
 	 */
-	bool AddFile(std::string name, void* data, size_t len);
+	virtual bool add_file(std::string name, void* data, size_t len) override;
 
 	/**
 	 * @brief Same as above, but this will read the specified file from the
@@ -170,7 +173,7 @@ class CVPK1Archive
 	 * @param file Path to the file on disk
 	 * @return true if successful
 	 */
-	bool AddFile(std::string name, std::string path);
+	virtual bool add_file(std::string name, std::string path) override;
 
 	/**
 	 * @brief Reads the specified file's data into a memory buffer
@@ -179,7 +182,7 @@ class CVPK1Archive
 	 * @param len Length of the buffer
 	 * @return pointer to the buffer if successful
 	 */
-	void* ReadFile(std::string file, void* buf, size_t len);
+	virtual void* read_file(std::string file, void* buf, size_t &len) override;
 
 	/**
 	 * @brief Extracts the specified file to the disk
@@ -187,17 +190,22 @@ class CVPK1Archive
 	 * @param tgt Target file to extract to
 	 * @return true if successful
 	 */
-	bool ExtractFile(std::string file, std::string tgt);
+	virtual bool extract_file(std::string file, std::string tgt) override;
+
+	/**
+	 * @brief Dumps various info about the VPK to the specified stream
+	 */
+	virtual void dump_info(FILE* stream) override;
 
 	/**
 	 * @brief Returns true if the archive has been loaded
 	 */
-	bool Good() const { return this->last_error == EError::NONE; };
+	virtual bool good() const override { return this->last_error == EError::NONE; };
 
 	/**
 	 * @brief Returns a string representing the last error
 	 */
-	std::string GetLastErrorString() const
+	virtual std::string get_last_error_string() const override
 	{
 		switch (this->last_error)
 		{
@@ -212,11 +220,6 @@ class CVPK1Archive
 			return "No error";
 		}
 	}
-
-	/**
-	 * @brief Dumps various info about the VPK to the specified stream
-	 */
-	void DumpInfo(FILE* stream);
 };
 
 } // namespace libvpk
