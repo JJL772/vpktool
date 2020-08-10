@@ -1,8 +1,8 @@
 
 #include "vpk.h"
 #include "basearchive.h"
-#include "wad.h"
 #include "vpk1.h"
+#include "wad.h"
 
 #include <fstream>
 #include <memory.h>
@@ -99,13 +99,12 @@ void libvpk::determine_file_type(FILE* stream, bool& vpk1, bool& vpk2, bool& wad
 
 archive_file_t::archive_file_t(const archive_file_t& other)
 {
-	size	      = other.size;
-	offset	      = other.offset;
-	on_disk	      = other.on_disk;
-	name	      = other.name;
-	dir	      = other.dir;
-	ext	      = other.ext;
-	vptr	      = other.vptr;
+	size	= other.size;
+	offset	= other.offset;
+	on_disk = other.on_disk;
+	name	= other.name;
+	dir	= other.dir;
+	ext	= other.ext;
 }
 
 archive_file_t::archive_file_t(archive_file_t&& other)
@@ -116,8 +115,6 @@ archive_file_t::archive_file_t(archive_file_t&& other)
 	name	      = other.name;
 	dir	      = other.dir;
 	ext	      = other.ext;
-	vptr	      = other.vptr;
-	other.vptr    = nullptr;
 	other.offset  = 0;
 	other.size    = 0;
 	other.name    = "";
@@ -134,8 +131,6 @@ archive_file_t& archive_file_t::operator=(archive_file_t&& other)
 	name	      = other.name;
 	dir	      = other.dir;
 	ext	      = other.ext;
-	vptr	      = other.vptr;
-	other.vptr    = nullptr;
 	other.offset  = 0;
 	other.size    = 0;
 	other.name    = "";
@@ -147,21 +142,13 @@ archive_file_t& archive_file_t::operator=(archive_file_t&& other)
 
 archive_file_t& archive_file_t::operator=(const archive_file_t& other)
 {
-	size	      = other.size;
-	offset	      = other.offset;
-	on_disk	      = other.on_disk;
-	name	      = other.name;
-	dir	      = other.dir;
-	ext	      = other.ext;
-	vptr	      = other.vptr;
+	size	= other.size;
+	offset	= other.offset;
+	on_disk = other.on_disk;
+	name	= other.name;
+	dir	= other.dir;
+	ext	= other.ext;
 	return *this;
 }
 
-archive_file_t::~archive_file_t()
-{
-	/* Use some dynamic_cast magic to determine the type of pointer we've got */
-	if(dynamic_cast<vpk1_file_t*>(vpk1))
-		delete vpk1;
-	else if(dynamic_cast<wad_internal_file_t*>(wad))
-		delete wad;
-}
+archive_file_t::~archive_file_t() {}

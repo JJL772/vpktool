@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <list>
 #include <stdint.h>
 #include <vector>
 
@@ -13,79 +14,32 @@
 namespace libvpk
 {
 
-	static const char PWADSignature[4] = {'P', 'W', 'A', 'D'};
-	static const char IWADSignature[4] = {'I', 'W', 'A', 'D'};
-
-#pragma pack(1)
-struct wad_header_t
-{
-	char	signature[4];
-	int32_t entries; // Doom reads them as signed ints, so we will too
-	int32_t dir_offset;
-};
-
-struct wad_internal_file_t
-{
-	bool onDisk; /* True if the file is on the disk (we use src in that case) */
-	union {
-		std::string src;
-		struct {
-			void* ptr;
-			size_t sz;
-		} dat;
-	};
-
-	wad_internal_file_t() :
-		onDisk(false)
-	{
-		dat.ptr = nullptr;
-		dat.sz = 0;
-	}
-
-	~wad_internal_file_t()
-	{
-		free(dat.ptr);
-		dat.sz = 0;
-		dat.ptr = nullptr;
-	}
-};
-
-struct wad_directory_t
-{
-	int32_t offset;
-	int32_t size;
-	char	name[8];
-};
-#pragma pack()
-
 struct wad_settings_t
 {
 	/* Whether or not to keep file handles open */
 	bool bKeepFileHandles;
 };
 
-static wad_settings_t g_DefaultWadSettings =
-{
+static wad_settings_t g_DefaultWadSettings = {
 	true, /* Keep file handles open */
 };
 
 class CWADArchive : public IBaseArchive
 {
 private:
-	wad_header_t m_header;
-	std::string m_onDiskName;
+	wad_header_t		    m_header;
+	std::string		    m_onDiskName;
 	std::vector<archive_file_t> m_files;
-	bool m_onDisk : 1; /* True if this file has been read from the disk, and it's not new */
-	bool m_IWAD : 1;
-	bool m_PWAD : 1;
-	bool m_dirty : 1;
-	bool m_error : 1;
-	wad_settings_t m_settings;
-	FILE* m_fileHandle;
+	bool			    m_onDisk : 1; /* True if this file has been read from the disk, and it's not new */
+	bool			    m_IWAD : 1;
+	bool			    m_PWAD : 1;
+	bool			    m_dirty : 1;
+	bool			    m_error : 1;
+	wad_settings_t		    m_settings;
+	FILE*			    m_fileHandle;
 
 	void calc_offsets();
-	static archive_file_t create_file();
-	static void destroy_file(archive_file_t* file);
+
 public:
 	explicit CWADArchive(wad_settings_t settings = g_DefaultWadSettings);
 	~CWADArchive();
@@ -94,8 +48,16 @@ public:
 
 	bool is_pwad() const { return m_PWAD; }
 	bool is_iwad() const { return m_IWAD; }
-	void set_pwad(bool b) { m_PWAD = b; m_IWAD = !b; }
-	void set_iwad(bool b) { m_IWAD = b; m_PWAD = !b; }
+	void set_pwad(bool b)
+	{
+		m_PWAD = b;
+		m_IWAD = !b;
+	}
+	void set_iwad(bool b)
+	{
+		m_IWAD = b;
+		m_PWAD = !b;
+	}
 
 	/* Returns a full list of the files in the archvie */
 	virtual const std::vector<archive_file_t>& get_files() const { return m_files; }

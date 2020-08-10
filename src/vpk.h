@@ -56,7 +56,7 @@ int get_vpk_version(std::ifstream& stream);
  * @param vpk1 true if a VPK1
  * @param vpk2 true if a VPK2
  * @param wad true if a PWAD or IWAD
- */ 
+ */
 void determine_file_type(std::filesystem::path, bool& vpk1, bool& vpk2, bool& wad);
 void determine_file_type(std::ifstream& stream, bool& vpk1, bool& vpk2, bool& wad);
 void determine_file_type(FILE* stream, bool& vpk1, bool& vpk2, bool& wad);

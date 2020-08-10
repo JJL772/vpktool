@@ -5,12 +5,15 @@
  */
 #pragma once
 
+#include <list>
 #include <string>
 #include <vector>
 
+#include "vpkdef.h"
+#include "waddef.h"
+
 namespace libvpk
 {
-
 struct archive_file_t
 {
 	std::string name;
@@ -18,21 +21,19 @@ struct archive_file_t
 	std::string ext; // File extension, if applicable
 	size_t	    size;
 	size_t	    offset;
-	bool on_disk : 1;
-	bool dirty : 1;
+	bool	    on_disk : 1;
+	bool	    dirty : 1;
 
 	/** Bit of a hack, but whatever. Archive formats may contain their own private data, just declare it here as a union
 	 * so we need to do less typing in the future */
 	union
 	{
-		void* vptr;
-		struct vpk1_file_t* vpk1;
-		struct vpk2_file_t* vpk2;
-		struct wad_internal_file_t* wad;
+		wad_internal_file_t wad;
+		vpk1_file_t	    vpk1;
 	};
 
 	/* Handle initialization */
-	archive_file_t() : size(0), offset(0), name(""), dir(""), ext(""), on_disk(false), dirty(false), vptr(nullptr) {}
+	archive_file_t() : size(0), offset(0), name(""), dir(""), ext(""), on_disk(false), dirty(false) {}
 	~archive_file_t();
 	archive_file_t(archive_file_t&& other);
 	archive_file_t(const archive_file_t& other);

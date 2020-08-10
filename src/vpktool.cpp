@@ -155,7 +155,7 @@ int main(int argc, char** argv)
 	else if (bWAD)
 		archive = CWADArchive::read(file);
 
-	if(!archive)
+	if (!archive)
 	{
 		printf("Internal error while reading archive\n");
 		exit(1);
@@ -198,10 +198,10 @@ int main(int argc, char** argv)
 	/* List files */
 	if (op & OP_LIST && !(op & OP_LIST_INDEPTH))
 	{
-		for (auto x : archive->get_files())
+		for (const auto& x : archive->get_files())
 		{
 			/* WAD files do not have directories */
-			if(bVPK1 || bVPK2)
+			if (bVPK1 || bVPK2)
 				printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
 			else
 				printf("%s\n", x.name.c_str());
@@ -213,19 +213,19 @@ int main(int argc, char** argv)
 	{
 		if (bVPK1)
 		{
-			for (auto x : archive->get_files())
+			for (const auto& x : archive->get_files())
 			{
 				printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
 				printf("\tCRC32: %u 0x%X\n\tArchive: "
 				       "%u\n\tEntry offset: %u\n\tEntry "
 				       "Length: %u\n\tPreload bytes: %u\n",
-				       x.vpk1->dirent.crc, x.vpk1->dirent.crc, x.vpk1->dirent.archive_index, x.vpk1->dirent.entry_offset,
-				       x.vpk1->dirent.entry_length, x.vpk1->dirent.preload_bytes);
+				       x.vpk1.dirent.crc, x.vpk1.dirent.crc, x.vpk1.dirent.archive_index, x.vpk1.dirent.entry_offset,
+				       x.vpk1.dirent.entry_length, x.vpk1.dirent.preload_bytes);
 			}
 		}
 		else if (bWAD)
 		{
-			for (auto x : archive->get_files())
+			for (const auto& x : archive->get_files())
 			{
 				printf("%s\n", x.name.c_str());
 				printf("\tOffset: %u\n\tSize: %u\n", x.offset, x.size);
