@@ -88,6 +88,7 @@ private:
 	static void destroy_file(archive_file_t* file);
 public:
 	explicit CWADArchive(wad_settings_t settings = g_DefaultWadSettings);
+	~CWADArchive();
 
 	static CWADArchive* read(std::string path, wad_settings_t settings = g_DefaultWadSettings);
 

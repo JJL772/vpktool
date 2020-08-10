@@ -25,6 +25,7 @@ struct archive_file_t
 	 * so we need to do less typing in the future */
 	union
 	{
+		void* vptr;
 		struct vpk1_file_t* vpk1;
 		struct vpk2_file_t* vpk2;
 		struct wad_internal_file_t* wad;
@@ -32,6 +33,11 @@ struct archive_file_t
 
 	/* Handle initialization */
 	archive_file_t() : size(0), offset(0), name(""), dir(""), ext(""), on_disk(false), dirty(false) {}
+	~archive_file_t();
+	archive_file_t(archive_file_t&& other);
+	archive_file_t(const archive_file_t& other);
+	archive_file_t& operator=(const archive_file_t& other);
+	archive_file_t& operator=(archive_file_t&& other);
 };
 
 class IBaseArchive

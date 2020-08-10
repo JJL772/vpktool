@@ -1,9 +1,13 @@
 
 #include "vpk.h"
+#include "basearchive.h"
 #include "wad.h"
+#include "vpk1.h"
 
 #include <fstream>
 #include <memory.h>
+
+using namespace libvpk;
 
 int libvpk::get_vpk_version(std::filesystem::path path)
 {
@@ -66,12 +70,14 @@ void libvpk::determine_file_type(std::ifstream& stream, bool& vpk1, bool& vpk2, 
 	basic_vpk_hdr_t hdr;
 	stream.read((char*)&hdr, sizeof(basic_vpk_hdr_t));
 	vpk1 = vpk2 = wad = false;
-	if(hdr.signature == VPKSignature)
+	if (hdr.signature == VPKSignature)
 	{
-		if(hdr.version == 1) vpk1 = true;
-		else if(hdr.version == 2) vpk2 = true;
+		if (hdr.version == 1)
+			vpk1 = true;
+		else if (hdr.version == 2)
+			vpk2 = true;
 	}
-	else if(memcmp(&hdr.signature, PWADSignature, 4) == 0 || memcmp(&hdr.signature, IWADSignature, 4) == 0)
+	else if (memcmp(&hdr.signature, PWADSignature, 4) == 0 || memcmp(&hdr.signature, IWADSignature, 4) == 0)
 		wad = true;
 }
 
@@ -80,11 +86,82 @@ void libvpk::determine_file_type(FILE* stream, bool& vpk1, bool& vpk2, bool& wad
 	basic_vpk_hdr_t hdr;
 	fread(&hdr, sizeof(basic_vpk_hdr_t), 1, stream);
 	vpk1 = vpk2 = wad = false;
-	if(hdr.signature == VPKSignature)
+	if (hdr.signature == VPKSignature)
 	{
-		if(hdr.version == 1) vpk1 = true;
-		else if(hdr.version == 2) vpk2 = true;
+		if (hdr.version == 1)
+			vpk1 = true;
+		else if (hdr.version == 2)
+			vpk2 = true;
 	}
-	else if(memcmp(&hdr.signature, PWADSignature, 4) == 0 || memcmp(&hdr.signature, IWADSignature, 4) == 0)
+	else if (memcmp(&hdr.signature, PWADSignature, 4) == 0 || memcmp(&hdr.signature, IWADSignature, 4) == 0)
 		wad = true;
+}
+
+archive_file_t::archive_file_t(const archive_file_t& other)
+{
+	size	      = other.size;
+	offset	      = other.offset;
+	on_disk	      = other.on_disk;
+	name	      = other.name;
+	dir	      = other.dir;
+	ext	      = other.ext;
+	vptr	      = other.vptr;
+}
+
+archive_file_t::archive_file_t(archive_file_t&& other)
+{
+	size	      = other.size;
+	offset	      = other.offset;
+	on_disk	      = other.on_disk;
+	name	      = other.name;
+	dir	      = other.dir;
+	ext	      = other.ext;
+	vptr	      = other.vptr;
+	other.vptr    = nullptr;
+	other.offset  = 0;
+	other.size    = 0;
+	other.name    = "";
+	other.on_disk = other.dirty = false;
+	other.dir		    = "";
+	other.ext		    = "";
+}
+
+archive_file_t& archive_file_t::operator=(archive_file_t&& other)
+{
+	size	      = other.size;
+	offset	      = other.offset;
+	on_disk	      = other.on_disk;
+	name	      = other.name;
+	dir	      = other.dir;
+	ext	      = other.ext;
+	vptr	      = other.vptr;
+	other.vptr    = nullptr;
+	other.offset  = 0;
+	other.size    = 0;
+	other.name    = "";
+	other.on_disk = other.dirty = false;
+	other.dir		    = "";
+	other.ext		    = "";
+	return *this;
+}
+
+archive_file_t& archive_file_t::operator=(const archive_file_t& other)
+{
+	size	      = other.size;
+	offset	      = other.offset;
+	on_disk	      = other.on_disk;
+	name	      = other.name;
+	dir	      = other.dir;
+	ext	      = other.ext;
+	vptr	      = other.vptr;
+	return *this;
+}
+
+archive_file_t::~archive_file_t()
+{
+	/* Use some dynamic_cast magic to determine the type of pointer we've got */
+	if(dynamic_cast<vpk1_file_t*>(vpk1))
+		delete vpk1;
+	else if(dynamic_cast<wad_internal_file_t*>(wad))
+		delete wad;
 }

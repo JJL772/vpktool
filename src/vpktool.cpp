@@ -249,6 +249,8 @@ int main(int argc, char** argv)
 	/* If the VPK has been modified, let's write it */
 	if (modified)
 		archive->write();
+
+	delete archive;
 }
 
 void show_help(int code)

@@ -13,6 +13,16 @@ CWADArchive::CWADArchive(wad_settings_t settings) : m_IWAD(false), m_PWAD(false)
 	memset((void*)&this->m_header, 0, sizeof(this->m_header));
 }
 
+CWADArchive::~CWADArchive()
+{
+	if(m_fileHandle) fclose(m_fileHandle);
+	m_fileHandle = nullptr;
+	for(auto& file : this->m_files)
+	{
+		destroy_file(&file);
+	}
+}
+
 CWADArchive* CWADArchive::read(std::string path, wad_settings_t settings)
 {
 	FILE* fs = fopen(path.c_str(), "rb");
@@ -67,6 +77,13 @@ CWADArchive* CWADArchive::read(std::string path, wad_settings_t settings)
 		archive->m_files.push_back(file);
 	}
 
+	if(settings.bKeepFileHandles)
+	{
+		archive->m_fileHandle = fs;
+	}
+	else
+		fclose(fs);
+
 	return archive;
 }
 
@@ -91,6 +108,7 @@ bool CWADArchive::remove_file(std::string file)
 		{
 			m_files.erase(it);
 			destroy_file(&(*it));
+			this->m_dirty = true;
 			return true;
 		}
 	}
@@ -145,6 +163,8 @@ bool CWADArchive::add_file(std::string name, void* pdat, size_t len)
 	assert(len > 0);
 	if (this->contains(name))
 		return false;
+	
+	this->m_dirty = true;
 
 	archive_file_t file = create_file();
 	file.name	    = name;
@@ -163,6 +183,8 @@ bool CWADArchive::add_file(std::string name, std::string path)
 {
 	if (this->contains(name))
 		return false;
+
+	this->m_dirty = true;
 
 	archive_file_t file = create_file();
 	file.name	    = name;
