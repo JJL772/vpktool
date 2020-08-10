@@ -77,19 +77,19 @@ public:
 	 * @brief Removes the specified file from the archive
 	 * @return true if file removed
 	 */
-	virtual bool remove_file(std::string file) override;
+	virtual bool remove_file(const std::string& file) override;
 
 	/**
 	 * @brief Checks if the specified file exists in the archive
 	 * @return true if found
 	 */
-	virtual bool contains(std::string file) const override;
+	virtual bool contains(const std::string& file) const override;
 
 	/**
 	 * @brief Writes all changes to the VPK to the disk
 	 * @return true if successful
 	 */
-	virtual bool write(std::string filename = "") override;
+	virtual bool write(const std::string& filename = "") override;
 
 	/**
 	 * @brief Adds a file to the archive, creating an extra VPK archive if
@@ -100,7 +100,7 @@ public:
 	 * @param len Length of the data blob
 	 * @return true if successful
 	 */
-	virtual bool add_file(std::string name, void* data, size_t len) override;
+	virtual bool add_file(const std::string& name, void* data, size_t len) override;
 
 	/**
 	 * @brief Same as above, but this will read the specified file from the
@@ -109,7 +109,7 @@ public:
 	 * @param file Path to the file on disk
 	 * @return true if successful
 	 */
-	virtual bool add_file(std::string name, std::string path) override;
+	virtual bool add_file(const std::string& name, std::string path) override;
 
 	/**
 	 * @brief Reads the specified file's data into a memory buffer
@@ -118,7 +118,7 @@ public:
 	 * @param len Length of the buffer
 	 * @return pointer to the buffer if successful
 	 */
-	virtual void* read_file(std::string file, void* buf, size_t& len) override;
+	virtual void* read_file(const std::string& file, void* buf, size_t& len) override;
 
 	/**
 	 * @brief Extracts the specified file to the disk
@@ -126,7 +126,7 @@ public:
 	 * @param tgt Target file to extract to
 	 * @return true if successful
 	 */
-	virtual bool extract_file(std::string file, std::string tgt) override;
+	virtual bool extract_file(const std::string& file, std::string tgt) override;
 
 	/**
 	 * @brief Dumps various info about the VPK to the specified stream

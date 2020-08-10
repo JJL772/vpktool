@@ -44,7 +44,7 @@ public:
 	explicit CWADArchive(wad_settings_t settings = g_DefaultWadSettings);
 	virtual ~CWADArchive();
 
-	static CWADArchive* read(std::string path, wad_settings_t settings = g_DefaultWadSettings);
+	static CWADArchive* read(const std::string& path, wad_settings_t settings = g_DefaultWadSettings);
 
 	bool is_pwad() const { return m_PWAD; }
 	bool is_iwad() const { return m_IWAD; }
@@ -66,20 +66,20 @@ public:
 	 * @brief Removes the specified file from the archive
 	 * @return true if file removed
 	 */
-	virtual bool remove_file(std::string file);
+	virtual bool remove_file(const std::string& file);
 
 	/**
 	 * @brief Checks if the specified file exists in the archive
 	 * @return true if found
 	 */
-	virtual bool contains(std::string file) const;
+	virtual bool contains(const std::string& file) const;
 
 	/**
 	 * @brief Writes all changes to the VPK to the disk
 	 * @param filename If set, the filename to write this file to.
 	 * @return true if successful
 	 */
-	virtual bool write(std::string filename = "");
+	virtual bool write(const std::string& filename = "");
 
 	/**
 	 * @brief Adds a file to the archive, creating an extra VPK archive if
@@ -90,7 +90,7 @@ public:
 	 * @param len Length of the data blob
 	 * @return true if successful
 	 */
-	virtual bool add_file(std::string name, void* data, size_t len);
+	virtual bool add_file(const std::string& name, void* data, size_t len);
 
 	/**
 	 * @brief Same as above, but this will read the specified file from the
@@ -99,7 +99,7 @@ public:
 	 * @param file Path to the file on disk
 	 * @return true if successful
 	 */
-	virtual bool add_file(std::string name, std::string path);
+	virtual bool add_file(const std::string& name, std::string path);
 
 	/**
 	 * @brief Reads the specified file's data into a memory buffer
@@ -108,7 +108,7 @@ public:
 	 * @param len Length of the buffer
 	 * @return pointer to the buffer if successful
 	 */
-	virtual void* read_file(std::string file, void* buf, size_t& len);
+	virtual void* read_file(const std::string& file, void* buf, size_t& len);
 
 	/**
 	 * @brief Extracts the specified file to the disk
@@ -116,7 +116,7 @@ public:
 	 * @param tgt Target file to extract to
 	 * @return true if successful
 	 */
-	virtual bool extract_file(std::string file, std::string tgt);
+	virtual bool extract_file(const std::string& file, std::string tgt);
 
 	/**
 	 * @brief Returns true if the archive has been loaded

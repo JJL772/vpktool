@@ -140,7 +140,7 @@ void CVPK1Archive::dump_info(FILE* fs)
 		header.signature, header.version, header.treesize, files.size());
 }
 
-bool CVPK1Archive::remove_file(std::string file)
+bool CVPK1Archive::remove_file(const std::string& file)
 {
 	for (auto it = files.begin(); it != files.end(); it++)
 	{
@@ -153,13 +153,13 @@ bool CVPK1Archive::remove_file(std::string file)
 	return false;
 }
 
-bool CVPK1Archive::add_file(std::string, void* data, size_t sz) {}
+bool CVPK1Archive::add_file(const std::string&, void* data, size_t sz) {}
 
-void* CVPK1Archive::read_file(std::string file, void* buf, size_t& len) {}
+void* CVPK1Archive::read_file(const std::string& file, void* buf, size_t& len) {}
 
-bool CVPK1Archive::contains(std::string file) const {}
+bool CVPK1Archive::contains(const std::string& file) const {}
 
-bool CVPK1Archive::add_file(std::string name, std::string fondisk)
+bool CVPK1Archive::add_file(const std::string& name, std::string fondisk)
 {
 	/* First thing to do is get the size of the file */
 	std::filesystem::path filepath(fondisk);
@@ -267,7 +267,7 @@ bool CVPK1Archive::add_file(std::string name, std::string fondisk)
 	return false;
 }
 
-bool CVPK1Archive::extract_file(std::string file, std::string dest)
+bool CVPK1Archive::extract_file(const std::string& file, std::string dest)
 {
 	/* Find the file to extract */
 	for (auto _file : this->files)
@@ -340,7 +340,7 @@ bool CVPK1Archive::extract_file(std::string file, std::string dest)
 	return false;
 }
 
-bool CVPK1Archive::write(std::string str)
+bool CVPK1Archive::write(const std::string& str)
 {
 	std::string file;
 	if (str == "")

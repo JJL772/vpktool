@@ -21,7 +21,7 @@ CWADArchive::~CWADArchive()
 	m_fileHandle = nullptr;
 }
 
-CWADArchive* CWADArchive::read(std::string path, wad_settings_t settings)
+CWADArchive* CWADArchive::read(const std::string& path, wad_settings_t settings)
 {
 	FILE* fs = fopen(path.c_str(), "rb");
 	if (!fs)
@@ -86,7 +86,7 @@ CWADArchive* CWADArchive::read(std::string path, wad_settings_t settings)
 	return archive;
 }
 
-bool CWADArchive::remove_file(std::string file)
+bool CWADArchive::remove_file(const std::string& file)
 {
 	for (auto it = m_files.begin(); it != m_files.end(); it++)
 	{
@@ -100,7 +100,7 @@ bool CWADArchive::remove_file(std::string file)
 	return false;
 }
 
-bool CWADArchive::contains(std::string file) const
+bool CWADArchive::contains(const std::string& file) const
 {
 	for (const auto& x : m_files)
 		if (x.name == file)
@@ -108,11 +108,11 @@ bool CWADArchive::contains(std::string file) const
 	return false;
 }
 
-bool CWADArchive::write(std::string filename)
+bool CWADArchive::write(const std::string& filename)
 {
 	assert(filename != "" || (m_onDisk && m_onDiskName != ""));
-	filename = filename != "" ? filename : m_onDiskName;
-	FILE* fs = fopen(filename.c_str(), "wb");
+	std::string newnam = filename != "" ? filename : m_onDiskName;
+	FILE* fs = fopen(newnam.c_str(), "wb");
 	if (!fs)
 		return false;
 	/* Directory will be located right after the wad header */
@@ -142,7 +142,7 @@ bool CWADArchive::write(std::string filename)
 	return true;
 }
 
-bool CWADArchive::add_file(std::string name, void* pdat, size_t len)
+bool CWADArchive::add_file(const std::string& name, void* pdat, size_t len)
 {
 	assert(pdat);
 	assert(len > 0);
@@ -164,7 +164,7 @@ bool CWADArchive::add_file(std::string name, void* pdat, size_t len)
 	return true;
 }
 
-bool CWADArchive::add_file(std::string name, std::string path)
+bool CWADArchive::add_file(const std::string& name, std::string path)
 {
 	if (this->contains(name))
 		return false;
@@ -180,7 +180,7 @@ bool CWADArchive::add_file(std::string name, std::string path)
 	return true;
 }
 
-void* CWADArchive::read_file(std::string file, void* buf, size_t& buflen)
+void* CWADArchive::read_file(const std::string& file, void* buf, size_t& buflen)
 {
 	assert(buf);
 	assert(buflen > 0);
@@ -231,7 +231,7 @@ void* CWADArchive::read_file(std::string file, void* buf, size_t& buflen)
 	return nullptr;
 }
 
-bool CWADArchive::extract_file(std::string file, std::string tgt)
+bool CWADArchive::extract_file(const std::string& file, std::string tgt)
 {
 	for (const auto& x : m_files)
 	{
