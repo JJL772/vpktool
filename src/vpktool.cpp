@@ -2,12 +2,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unordered_map>
+#include <chrono>
 
 #include "vpk.h"
 #include "vpk1.h"
 #include "wad.h"
 
 using namespace libvpk;
+
+/* Makes things a wee bit nicer... */
+typedef std::chrono::high_resolution_clock Clock;
+typedef std::chrono::time_point<Clock> Time;
 
 void show_help(int exit_code = 1);
 
@@ -22,6 +27,7 @@ void show_help(int exit_code = 1);
 
 #define FL_VERBOSE (1 << 0)
 #define FL_DEBUG   (1 << 1)
+#define FL_TIMED   (1 << 2)
 
 #define CHECK_PARM_INDEX(_i)                                                                                                                         \
 	if (i + _i >= argc)                                                                                                                          \
@@ -48,6 +54,10 @@ int main(int argc, char** argv)
 	std::vector<std::string>		     delete_items;
 	std::unordered_map<std::string, std::string> extract_items;
 	bool					     modified = false;
+
+	Time tBeforeCheckType, tAfterCheckType;
+	Time tBeforeRead, tAfterRead;
+	Time tBeforeWrite, tAfterWrite;
 
 	for (int i = 0; i < argc; i++)
 	{
@@ -108,6 +118,11 @@ int main(int argc, char** argv)
 				CHECK_PARM_INDEX(2);
 				extract_items.insert({argv[i + 1], argv[i + 2]});
 			}
+			/* -t for timing */
+			else if (arg[1] == 't')
+			{
+				flags |= FL_TIMED;
+			}
 			/* -l for listing files */
 			else if (arg[1] == 'l')
 			{
@@ -139,8 +154,10 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
+	tBeforeCheckType = Clock::now();
 	bool bVPK1, bVPK2, bWAD;
 	libvpk::determine_file_type(file, bVPK1, bVPK2, bWAD);
+	tAfterCheckType = Clock::now();
 
 	/* Check if invalid */
 	if (!bVPK1 && !bVPK2 && !bWAD)
@@ -149,11 +166,13 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
+	tBeforeRead = Clock::now();
 	IBaseArchive* archive = nullptr;
 	if (bVPK1)
 		archive = CVPK1Archive::read(file);
 	else if (bWAD)
 		archive = CWADArchive::read(file);
+	tAfterRead = Clock::now();
 
 	if (!archive)
 	{
@@ -247,15 +266,23 @@ int main(int argc, char** argv)
 	}
 
 	/* If the VPK has been modified, let's write it */
+	tBeforeWrite = Clock::now();
 	if (modified)
 		archive->write();
+	tAfterWrite = Clock::now();
 
 	delete archive;
+
+	printf("Time to determine type: %f ms\n", (tAfterCheckType - tBeforeCheckType).count() / 1000000.0f);
+	printf("Time to read: %f ms\n", (tAfterRead - tBeforeRead).count() / 1000000.0f);
+	if(modified)
+		printf("Time to write changes to disk: %f ms\n", (tAfterWrite - tBeforeWrite).count() / 1000000.0f);
 }
 
 void show_help(int code)
 {
-	printf("USAGE: vpktool -[iadef] archive.vpk\n\n");
+	printf("USAGE: vpktool -[iadefll] archive.vpk\n\n");
+	printf("\t-l[l]           - Lists all files in the archive. If a second l is specified, it lists in great detail\n");
 	printf("\t-i              - Show info about the specified VPK\n");
 	printf("\t-e <dir>        - Extract the vpk to the specified dir\n");
 	printf("\t-f <file>       - Search for the specified pattern in the "
@@ -264,5 +291,6 @@ void show_help(int code)
 	printf("\t-d <file>       - Remove the file from the vpk\n");
 	printf("\t-s <file> <dst> - Extract the specified file to dst\n");
 	printf("\t-v              - Enables verbose mode\n");
+	printf("\t-t              - Record the time of tool execution\n");
 	exit(0);
 }
