@@ -32,7 +32,7 @@ struct archive_file_t
 	};
 
 	/* Handle initialization */
-	archive_file_t() : size(0), offset(0), name(""), dir(""), ext(""), on_disk(false), dirty(false) {}
+	archive_file_t() : size(0), offset(0), name(""), dir(""), ext(""), on_disk(false), dirty(false), vptr(nullptr) {}
 	~archive_file_t();
 	archive_file_t(archive_file_t&& other);
 	archive_file_t(const archive_file_t& other);
