@@ -164,7 +164,7 @@ bool CWADArchive::add_file(const std::string& name, void* pdat, size_t len)
 	return true;
 }
 
-bool CWADArchive::add_file(const std::string& name, std::string path)
+bool CWADArchive::add_file(const std::string& name, const std::string& path)
 {
 	if (this->contains(name))
 		return false;

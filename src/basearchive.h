@@ -85,7 +85,7 @@ public:
 	 * @param file Path to the file on disk
 	 * @return true if successful
 	 */
-	virtual bool add_file(const std::string& name, std::string path) = 0;
+	virtual bool add_file(const std::string& name, const std::string& path) = 0;
 
 	/**
 	 * @brief Reads the specified file's data into a memory buffer
