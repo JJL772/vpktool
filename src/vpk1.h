@@ -109,7 +109,7 @@ public:
 	 * @param file Path to the file on disk
 	 * @return true if successful
 	 */
-	virtual bool add_file(const std::string& name, std::string path) override;
+	virtual bool add_file(const std::string& name, const std::string& path) override;
 
 	/**
 	 * @brief Reads the specified file's data into a memory buffer

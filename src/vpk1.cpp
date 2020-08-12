@@ -159,7 +159,7 @@ void* CVPK1Archive::read_file(const std::string& file, void* buf, size_t& len) {
 
 bool CVPK1Archive::contains(const std::string& file) const {}
 
-bool CVPK1Archive::add_file(const std::string& name, std::string fondisk)
+bool CVPK1Archive::add_file(const std::string& name, const std::string& fondisk)
 {
 	/* First thing to do is get the size of the file */
 	std::filesystem::path filepath(fondisk);

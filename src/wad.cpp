@@ -112,7 +112,7 @@ bool CWADArchive::write(const std::string& filename)
 {
 	assert(filename != "" || (m_onDisk && m_onDiskName != ""));
 	std::string newnam = filename != "" ? filename : m_onDiskName;
-	FILE* fs = fopen(newnam.c_str(), "wb");
+	FILE*	    fs	   = fopen(newnam.c_str(), "wb");
 	if (!fs)
 		return false;
 	/* Directory will be located right after the wad header */

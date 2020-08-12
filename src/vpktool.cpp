@@ -1,8 +1,10 @@
+#include <chrono>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unordered_map>
-#include <chrono>
+#include <filesystem>
 
 #include "vpk.h"
 #include "vpk1.h"
@@ -12,7 +14,9 @@ using namespace libvpk;
 
 /* Makes things a wee bit nicer... */
 typedef std::chrono::high_resolution_clock Clock;
-typedef std::chrono::time_point<Clock> Time;
+typedef std::chrono::time_point<Clock>	   Time;
+
+namespace filesystem = std::filesystem;
 
 void show_help(int exit_code = 1);
 
@@ -24,10 +28,12 @@ void show_help(int exit_code = 1);
 #define OP_EXTRACT_SPECIFIC (1 << 5)
 #define OP_LIST		    (1 << 6)
 #define OP_LIST_INDEPTH	    (1 << 7)
+#define OP_CREATE_ARCHIVE   (1 << 8)
 
 #define FL_VERBOSE (1 << 0)
 #define FL_DEBUG   (1 << 1)
 #define FL_TIMED   (1 << 2)
+#define FL_RECURSE (1 << 3)
 
 #define CHECK_PARM_INDEX(_i)                                                                                                                         \
 	if (i + _i >= argc)                                                                                                                          \
@@ -54,6 +60,10 @@ int main(int argc, char** argv)
 	std::vector<std::string>		     delete_items;
 	std::unordered_map<std::string, std::string> extract_items;
 	bool					     modified = false;
+	std::string				     type_string;
+	std::string				     filename;
+	std::vector<std::string>		     create_files;
+	std::string				     manifest; /* JSON manifest of all the files in the archive */
 
 	Time tBeforeCheckType, tAfterCheckType;
 	Time tBeforeRead, tAfterRead;
@@ -66,79 +76,105 @@ int main(int argc, char** argv)
 		/* Handle arguments */
 		if (arg[0] == '-')
 		{
-			/* -i will show info */
-			if (arg[1] == 'i')
+			for (int g = 1; g < strlen(arg); g++)
 			{
-				op |= OP_INFO;
-			}
-			/* -h will show help */
-			else if (arg[1] == 'h')
-			{
-				show_help(0);
-			}
-			/* -f searches for a file */
-			else if (arg[1] == 'f')
-			{
-				op |= OP_FIND;
-				CHECK_PARM_INDEX(1);
-				find_term = argv[i + 1];
-			}
-			/* -e is extract */
-			else if (arg[1] == 'e')
-			{
-				op |= OP_EXTRACT;
-				CHECK_PARM_INDEX(1);
-				extract_dest = argv[i + 1];
-			}
-			/* -a is add to vpk */
-			else if (arg[1] == 'a')
-			{
-				op |= OP_ADD;
-				CHECK_PARM_INDEX(2);
-				/* First item: file in vpk. Second: file on disk
-				 */
-				add_items.insert(std::make_pair(argv[i + 1], argv[i + 2]));
-			}
-			/* -d is used to remove from the vpk */
-			else if (arg[1] == 'd')
-			{
-				op |= OP_DELETE;
-				CHECK_PARM_INDEX(1);
-				delete_items.push_back(argv[i + 1]);
-			}
-			/* -v for verbose mode */
-			else if (arg[1] == 'v')
-			{
-				flags |= FL_VERBOSE;
-			}
-			/* -s for extract specific targets */
-			else if (arg[1] == 's')
-			{
-				op |= OP_EXTRACT_SPECIFIC;
-				CHECK_PARM_INDEX(2);
-				extract_items.insert({argv[i + 1], argv[i + 2]});
-			}
-			/* -t for timing */
-			else if (arg[1] == 't')
-			{
-				flags |= FL_TIMED;
-			}
-			/* -l for listing files */
-			else if (arg[1] == 'l')
-			{
-				op |= OP_LIST;
-				if (arg[2] == 'l')
-					op |= OP_LIST_INDEPTH;
-			}
-			else
-			{
-				printf("Unrecognized parameter %s\n\n", arg);
-				show_help(1);
+				/* -i will show info */
+				if (arg[g] == 'i')
+				{
+					op |= OP_INFO;
+				}
+				/* -h will show help */
+				else if (arg[g] == 'h')
+				{
+					show_help(0);
+				}
+				/* -f searches for a file */
+				else if (arg[g] == 'f')
+				{
+					op |= OP_FIND;
+					CHECK_PARM_INDEX(1);
+					find_term = argv[i + 1];
+				}
+				/* -e is extract */
+				else if (arg[g] == 'e')
+				{
+					op |= OP_EXTRACT;
+					CHECK_PARM_INDEX(1);
+					extract_dest = argv[i + 1];
+				}
+				/* -a is add to vpk */
+				else if (arg[g] == 'a')
+				{
+					op |= OP_ADD;
+					CHECK_PARM_INDEX(2);
+					/* First item: file in vpk. Second: file on disk
+					 */
+					add_items.insert(std::make_pair(argv[i + 1], argv[i + 2]));
+				}
+				/* -d is used to remove from the vpk */
+				else if (arg[g] == 'd')
+				{
+					op |= OP_DELETE;
+					CHECK_PARM_INDEX(1);
+					delete_items.push_back(argv[i + 1]);
+				}
+				/* -v for verbose mode */
+				else if (arg[g] == 'v')
+				{
+					flags |= FL_VERBOSE;
+				}
+				/* -s for extract specific targets */
+				else if (arg[g] == 's')
+				{
+					op |= OP_EXTRACT_SPECIFIC;
+					CHECK_PARM_INDEX(2);
+					extract_items.insert({argv[i + 1], argv[i + 2]});
+				}
+				/* -t for timing */
+				else if (arg[g] == 't')
+				{
+					flags |= FL_TIMED;
+				}
+				/* -l for listing files */
+				else if (arg[g] == 'l')
+				{
+					if (op & OP_LIST)
+						op |= OP_LIST_INDEPTH;
+					op |= OP_LIST;
+				}
+				/* -r for recursive adding */
+				else if (arg[g] == 'r')
+				{
+					flags |= FL_RECURSE;
+				}
+				/* -c for creating an archive */
+				else if (arg[g] == 'c')
+				{
+					op |= OP_CREATE_ARCHIVE;
+					CHECK_PARM_INDEX(1);
+					filename = argv[i + 1];
+				}
+				/* -m for the archive type */
+				else if (arg[g] == 'm')
+				{
+					CHECK_PARM_INDEX(1);
+					type_string = argv[i + 1];
+				}
+				else
+				{
+					printf("Unrecognized parameter %s\n\n", arg);
+					show_help(1);
+				}
 			}
 		}
-		else if (i == argc - 1 && i > 0)
+		else if (i == argc - 1 && i > 0 && !(op & OP_CREATE_ARCHIVE))
 		{
 			file = arg;
+		}
+		else if (op & OP_CREATE_ARCHIVE)
+		{
+			/* Everything else is appended into the create_files listing if OP_CREATE_ARCHIVE is set. */
+			create_files.push_back(argv[i]);
 		}
 	}
 
@@ -154,10 +190,23 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	tBeforeCheckType = Clock::now();
 	bool bVPK1, bVPK2, bWAD;
-	libvpk::determine_file_type(file, bVPK1, bVPK2, bWAD);
-	tAfterCheckType = Clock::now();
+
+	if (!(op & OP_CREATE_ARCHIVE))
+	{
+		tBeforeCheckType = Clock::now();
+		libvpk::determine_file_type(file, bVPK1, bVPK2, bWAD);
+		tAfterCheckType = Clock::now();
+	}
+	else
+	{
+		if (type_string == "vpk1")
+			bVPK1 = true;
+		if (type_string == "vpk2")
+			bVPK2 = true;
+		if (type_string == "wad")
+			bWAD = true;
+	}
 
 	/* Check if invalid */
 	if (!bVPK1 && !bVPK2 && !bWAD)
@@ -166,122 +215,180 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	tBeforeRead = Clock::now();
-	IBaseArchive* archive = nullptr;
-	if (bVPK1)
-		archive = CVPK1Archive::read(file);
-	else if (bWAD)
-		archive = CWADArchive::read(file);
-	tAfterRead = Clock::now();
-
-	if (!archive)
+	/* Archive is new */
+	if (op & OP_CREATE_ARCHIVE)
 	{
-		printf("Internal error while reading archive\n");
-		exit(1);
-	}
+		IBaseArchive* archive = nullptr;
+		if (bWAD)
+			archive = new CWADArchive();
 
-	/* Check for read errors */
-	if (archive->get_last_error_string() != "")
-	{
-		printf("Error while reading archive: %s\n", archive->get_last_error_string().c_str());
-		delete archive;
-		exit(1);
-	}
-
-	/* Display info for VPK, if requested */
-	if (op & OP_INFO)
-	{
-		archive->dump_info(stdout);
-	}
-
-	/* Handle deletions */
-	if (op & OP_DELETE)
-	{
-		for (auto item : delete_items)
+		/* File manifests will automatically override recurse flags */
+		if (manifest != "")
 		{
-			archive->remove_file(item);
 		}
-		modified = true;
-	}
-
-	/* Handle additions */
-	if (op & OP_ADD)
-	{
-		for (auto item : add_items)
+		/* If the -r flag is specified, the file list should be fully made of directories */
+		else if(flags & FL_RECURSE)
 		{
-			archive->add_file(item.first, item.second);
-		}
-		modified = true;
-	}
+			std::vector<std::string> actual_files;
 
-	/* List files */
-	if (op & OP_LIST && !(op & OP_LIST_INDEPTH))
-	{
-		for (const auto& x : archive->get_files())
+			/* Loop through the dirs and recursively add files to the real file list */
+			for(auto file : create_files)
+			{
+				if(!filesystem::is_directory(file))
+				{
+					printf("%s is not a directory.\n", file.c_str());
+					exit(1);
+				}
+				
+				/* Recurse through directories and add all files */
+				for(auto& p : filesystem::recursive_directory_iterator(file))
+				{
+					if(!p.is_directory())
+					{
+						/* Strip off the root directory of the file when we add it */
+						std::string _file = p.path().string();
+						size_t pos = _file.find(file);
+						if(pos != std::string::npos)
+							_file.replace(pos, file.size(), "");
+
+						VERBOSE_LOG("Added %s to archive as %s\n", p.path().string().c_str(), _file.c_str());
+						archive->add_file(_file, p.path().string());
+					}
+				}
+			}
+
+		}
+		else
 		{
-			/* WAD files do not have directories */
-			if (bVPK1 || bVPK2)
-				printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
-			else
-				printf("%s\n", x.name.c_str());
+			for (auto file : create_files)
+			{
+				VERBOSE_LOG("Added %s to archive\n", file.c_str());
+				archive->add_file(file, file);
+			}
 		}
-	}
 
-	/* List files in depth */
-	if (op & OP_LIST_INDEPTH)
+		archive->write(filename);
+	}
+	/* Archive is *not* new */
+	else
 	{
+		tBeforeRead	      = Clock::now();
+		IBaseArchive* archive = nullptr;
 		if (bVPK1)
-		{
-			for (const auto& x : archive->get_files())
-			{
-				printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
-				printf("\tCRC32: %u 0x%X\n\tArchive: "
-				       "%u\n\tEntry offset: %u\n\tEntry "
-				       "Length: %u\n\tPreload bytes: %u\n",
-				       x.vpk1.dirent.crc, x.vpk1.dirent.crc, x.vpk1.dirent.archive_index, x.vpk1.dirent.entry_offset,
-				       x.vpk1.dirent.entry_length, x.vpk1.dirent.preload_bytes);
-			}
-		}
+			archive = CVPK1Archive::read(file);
 		else if (bWAD)
+			archive = CWADArchive::read(file);
+		tAfterRead = Clock::now();
+
+		if (!archive)
+		{
+			printf("Internal error while reading archive\n");
+			exit(1);
+		}
+
+		/* Check for read errors */
+		if (archive->get_last_error_string() != "")
+		{
+			printf("Error while reading archive: %s\n", archive->get_last_error_string().c_str());
+			delete archive;
+			exit(1);
+		}
+
+		/* Display info for VPK, if requested */
+		if (op & OP_INFO)
+		{
+			archive->dump_info(stdout);
+		}
+
+		/* Handle deletions */
+		if (op & OP_DELETE)
+		{
+			for (auto item : delete_items)
+			{
+				archive->remove_file(item);
+			}
+			modified = true;
+		}
+
+		/* Handle additions */
+		if (op & OP_ADD)
+		{
+			for (auto item : add_items)
+			{
+				archive->add_file(item.first, item.second);
+			}
+			modified = true;
+		}
+
+		/* List files */
+		if (op & OP_LIST && !(op & OP_LIST_INDEPTH))
 		{
 			for (const auto& x : archive->get_files())
 			{
-				printf("%s\n", x.name.c_str());
-				printf("\tOffset: %u\n\tSize: %u\n", x.offset, x.size);
+				/* WAD files do not have directories */
+				if (bVPK1 || bVPK2)
+					printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
+				else
+					printf("%s\n", x.name.c_str());
 			}
 		}
-	}
 
-	/* Extract */
-	if (op & OP_EXTRACT_SPECIFIC)
-	{
-		for (auto x : extract_items)
+		/* List files in depth */
+		if (op & OP_LIST_INDEPTH)
 		{
-			bool ret = archive->extract_file(x.first, x.second);
-			if (ret)
-				printf("%s -> %s\n", x.first.c_str(), x.second.c_str());
-			else
-				printf("Failed to extract %s\n", x.first.c_str());
+			if (bVPK1)
+			{
+				for (const auto& x : archive->get_files())
+				{
+					printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
+					printf("\tCRC32: %u 0x%X\n\tArchive: "
+					       "%u\n\tEntry offset: %u\n\tEntry "
+					       "Length: %u\n\tPreload bytes: %u\n",
+					       x.vpk1.dirent.crc, x.vpk1.dirent.crc, x.vpk1.dirent.archive_index, x.vpk1.dirent.entry_offset,
+					       x.vpk1.dirent.entry_length, x.vpk1.dirent.preload_bytes);
+				}
+			}
+			else if (bWAD)
+			{
+				for (const auto& x : archive->get_files())
+				{
+					printf("%s\n", x.name.c_str());
+					printf("\tOffset: %u\n\tSize: %u\n", x.offset, x.size);
+				}
+			}
 		}
+
+		/* Extract */
+		if (op & OP_EXTRACT_SPECIFIC)
+		{
+			for (auto x : extract_items)
+			{
+				bool ret = archive->extract_file(x.first, x.second);
+				if (ret)
+					printf("%s -> %s\n", x.first.c_str(), x.second.c_str());
+				else
+					printf("Failed to extract %s\n", x.first.c_str());
+			}
+		}
+
+		/* If the VPK has been modified, let's write it */
+		tBeforeWrite = Clock::now();
+		if (modified)
+			archive->write();
+		tAfterWrite = Clock::now();
+
+		delete archive;
+
+		printf("Time to determine type: %f ms\n", (tAfterCheckType - tBeforeCheckType).count() / 1000000.0f);
+		printf("Time to read: %f ms\n", (tAfterRead - tBeforeRead).count() / 1000000.0f);
+		if (modified)
+			printf("Time to write changes to disk: %f ms\n", (tAfterWrite - tBeforeWrite).count() / 1000000.0f);
 	}
-
-	/* If the VPK has been modified, let's write it */
-	tBeforeWrite = Clock::now();
-	if (modified)
-		archive->write();
-	tAfterWrite = Clock::now();
-
-	delete archive;
-
-	printf("Time to determine type: %f ms\n", (tAfterCheckType - tBeforeCheckType).count() / 1000000.0f);
-	printf("Time to read: %f ms\n", (tAfterRead - tBeforeRead).count() / 1000000.0f);
-	if(modified)
-		printf("Time to write changes to disk: %f ms\n", (tAfterWrite - tBeforeWrite).count() / 1000000.0f);
 }
 
 void show_help(int code)
 {
-	printf("USAGE: vpktool -[iadefll] archive.vpk\n\n");
+	printf("USAGE: vpktool -[iadefllcr] archive.vpk [files...]\n\n");
 	printf("\t-l[l]           - Lists all files in the archive. If a second l is specified, it lists in great detail\n");
 	printf("\t-i              - Show info about the specified VPK\n");
 	printf("\t-e <dir>        - Extract the vpk to the specified dir\n");
@@ -292,5 +399,8 @@ void show_help(int code)
 	printf("\t-s <file> <dst> - Extract the specified file to dst\n");
 	printf("\t-v              - Enables verbose mode\n");
 	printf("\t-t              - Record the time of tool execution\n");
+	printf("\t-r              - Recursively add files to the archive\n");
+	printf("\t-c              - Creates a new archive\n");
+	printf("\t-m              - Type of archive. Valid opts are: vpk1 vpk2 wad\n");
 	exit(0);
 }
