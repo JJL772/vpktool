@@ -10,5 +10,7 @@ add_library(libvpk STATIC ${LIBVPK_SRCS})
 add_executable(vpktool ${VPKTOOL_SRCS})
 target_link_libraries(vpktool libvpk)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -g")
+
 set_target_properties(libvpk PROPERTIES CXX_STANDARD 17)
 set_target_properties(vpktool PROPERTIES CXX_STANDARD 17)
