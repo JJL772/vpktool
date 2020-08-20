@@ -2,3 +2,5 @@ build/
 bin/
 cmake-*
 .idea/
+.vscode/
+tests/
