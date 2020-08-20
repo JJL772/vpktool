@@ -69,10 +69,11 @@ CWADArchive* CWADArchive::read(const std::string& path, wad_settings_t settings)
 		memcpy(tmpnam, entry.name, 8);
 		/* Set the file and push it back in the list */
 		archive_file_t file;
-		file.size    = entry.size;
-		file.offset  = entry.offset;
-		file.name    = tmpnam;
-		file.on_disk = true; // set to true to indicate that we've been read from the disk
+		file.size     = entry.size;
+		file.offset   = entry.offset;
+		file.name     = tmpnam;
+		file.on_disk  = true; // set to true to indicate that we've been read from the disk
+		file.internal = wad_internal_file_t();
 		archive->m_files.push_back(file);
 	}
 
@@ -115,8 +116,7 @@ bool CWADArchive::write(const std::string& filename)
 	FILE*	    fs	   = fopen(newnam.c_str(), "wb");
 	if (!fs)
 		return false;
-	/* Directory will be located right after the wad header */
-	m_header.dir_offset = sizeof(wad_header_t) - 1;
+	m_header.dir_offset = 0;
 	m_header.entries    = m_files.size();
 	if (m_IWAD)
 		memcpy(&m_header.signature, IWADSignature, 4);
@@ -164,10 +164,10 @@ bool CWADArchive::write(const std::string& filename)
 		fwrite((void*)&entry, sizeof(wad_directory_t), 1, fs);
 	}
 
-	/* Write out file data */
-	if (this->m_dirty)
-	{
-	}
+	/* Now go in an update the pointer to the directory */
+	fseek(fs, 8, SEEK_SET);
+	int _off = cur_offset;
+	fwrite(&_off, sizeof(int), 1, fs);
 
 	fclose(fs);
 	return true;
@@ -184,13 +184,13 @@ bool CWADArchive::add_file(const std::string& name, void* pdat, size_t len)
 
 	archive_file_t	    file;
 	wad_internal_file_t internal_file;
-	file.name	      = name;
-	file.on_disk	      = false;
-	file.dirty	      = true;
-	internal_file.onDisk  = false; // the file is currently in memory waiting to be written to disk
-	internal_file.dat.ptr = malloc(len);
-	internal_file.dat.sz  = len;
-	memcpy(internal_file.dat.ptr, pdat, len);
+	file.name	     = name;
+	file.on_disk	     = false;
+	file.dirty	     = true;
+	internal_file.onDisk = false; // the file is currently in memory waiting to be written to disk
+	internal_file.ptr    = malloc(len);
+	internal_file.sz     = len;
+	memcpy(internal_file.ptr, pdat, len);
 	file.internal = internal_file;
 
 	m_files.push_back(file);
@@ -234,8 +234,8 @@ void* CWADArchive::read_file(const std::string& file, void* buf, size_t& buflen)
 			/* otherwise it's just memory */
 			else if (x.dirty && !wad.onDisk)
 			{
-				size_t num = wad.dat.sz > buflen ? buflen : wad.dat.sz;
-				memcpy(buf, wad.dat.ptr, num);
+				size_t num = wad.sz > buflen ? buflen : wad.sz;
+				memcpy(buf, wad.ptr, num);
 				buflen = num;
 				return buf;
 			}
@@ -308,45 +308,29 @@ void CWADArchive::dump_info(FILE* fs)
 wad_internal_file_t::wad_internal_file_t(wad_internal_file_t&& other) noexcept
 {
 	this->onDisk = other.onDisk;
-	if (onDisk)
-		this->src = other.src;
-	else
-	{
-		if (other.dat.sz > 0 && other.dat.ptr)
-		{
-			this->dat.ptr = malloc(other.dat.sz);
-			memcpy(dat.ptr, other.dat.ptr, other.dat.sz);
-		}
-		else
-			this->dat.ptr = nullptr;
-		this->dat.sz = other.dat.sz;
-	}
-	other.src = "";
+	this->src    = other.src;
+	this->ptr    = other.ptr;
+	this->sz     = other.sz;
+	other.sz     = 0;
+	other.ptr    = nullptr;
+	other.onDisk = false;
+	other.src    = "";
 }
 
 wad_internal_file_t::wad_internal_file_t(const wad_internal_file_t& other)
 {
 	this->onDisk = other.onDisk;
-	if (onDisk)
-		this->src = other.src;
-	else
-	{
-		if (other.dat.sz > 0 && other.dat.ptr)
-		{
-			this->dat.ptr = malloc(other.dat.sz);
-			memcpy(dat.ptr, other.dat.ptr, other.dat.sz);
-		}
-		else
-			this->dat.ptr = nullptr;
-		this->dat.sz = other.dat.sz;
-	}
+	this->src    = other.src;
+	this->ptr    = other.ptr;
+	this->sz     = other.sz;
 }
 
-wad_internal_file_t::wad_internal_file_t() : onDisk(false), src("") {}
+wad_internal_file_t::wad_internal_file_t() : onDisk(true), ptr(nullptr), sz(0), src("") {}
 
 wad_internal_file_t::~wad_internal_file_t()
 {
-	free(dat.ptr);
-	dat.sz	= 0;
-	dat.ptr = nullptr;
+	if (ptr)
+		free(ptr);
+	sz  = 0;
+	ptr = nullptr;
 }

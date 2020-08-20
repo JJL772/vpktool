@@ -9,16 +9,11 @@ static const char IWADSignature[4] = {'I', 'W', 'A', 'D'};
 
 struct wad_internal_file_t
 {
-	bool onDisk; /* True if the file is on the disk (we use src in that case) */
-	union
-	{
-		std::string src;
-		struct
-		{
-			void*  ptr;
-			size_t sz;
-		} dat;
-	};
+	bool	    onDisk; /* True if the file is on the disk (we use src in that case) */
+	std::string src;
+	void*	    ptr;
+	size_t	    sz;
+
 	wad_internal_file_t(const wad_internal_file_t& other);
 	wad_internal_file_t(wad_internal_file_t&& other) noexcept;
 	wad_internal_file_t();
