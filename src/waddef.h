@@ -20,6 +20,7 @@ struct wad_internal_file_t
 		} dat;
 	};
 	wad_internal_file_t(const wad_internal_file_t& other);
+	wad_internal_file_t(wad_internal_file_t&& other);
 	wad_internal_file_t();
 	~wad_internal_file_t();
 };

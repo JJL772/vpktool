@@ -124,6 +124,36 @@ bool CWADArchive::write(const std::string& filename)
 		memcpy(&m_header.signature, PWADSignature, 4);
 	fwrite((void*)&m_header, sizeof(wad_header_t), 1, fs);
 
+	/* Write out the file data */
+	size_t cur_offset = sizeof(wad_header_t);
+	if(this->m_dirty)
+	{
+		for(auto& x : m_files)
+		{
+			wad_internal_file_t& wad = std::any_cast<wad_internal_file_t&>(x.internal);
+			if(wad.onDisk)
+			{
+				printf("WROTE FILE\n");
+				FILE* _fs = fopen(wad.src.c_str(), "rb");
+				if(!_fs) continue;
+
+				/* Get the file size */
+				fseek(_fs, 0, SEEK_END);
+				x.size = ftell(_fs);
+				x.offset = cur_offset;
+				fseek(_fs, 0, SEEK_SET);
+				/* Read into memory buffer */
+				void* pbuf = malloc(x.size);
+				fread(pbuf, x.size, 1, _fs);
+				/* Write it out onto the disk */
+				fwrite(pbuf, x.size, 1, fs);
+
+				fclose(_fs);
+				cur_offset += x.size;
+			}
+		}
+	}
+
 	/* Write all entries */
 	for (const auto& x : m_files)
 	{
@@ -139,6 +169,7 @@ bool CWADArchive::write(const std::string& filename)
 	{
 	}
 
+	fclose(fs);
 	return true;
 }
 
@@ -152,13 +183,15 @@ bool CWADArchive::add_file(const std::string& name, void* pdat, size_t len)
 	this->m_dirty = true;
 
 	archive_file_t file;
+	wad_internal_file_t internal_file;
 	file.name	 = name;
 	file.on_disk	 = false;
 	file.dirty	 = true;
-	file.wad.onDisk	 = false; // the file is currently in memory waiting to be written to disk
-	file.wad.dat.ptr = malloc(len);
-	file.wad.dat.sz	 = len;
-	memcpy(file.wad.dat.ptr, pdat, len);
+	internal_file.onDisk	 = false; // the file is currently in memory waiting to be written to disk
+	internal_file.dat.ptr = malloc(len);
+	internal_file.dat.sz	 = len;
+	memcpy(internal_file.dat.ptr, pdat, len);
+	file.internal = internal_file;
 
 	m_files.push_back(file);
 	return true;
@@ -172,9 +205,11 @@ bool CWADArchive::add_file(const std::string& name, const std::string& path)
 	this->m_dirty = true;
 
 	archive_file_t file;
+	wad_internal_file_t internal_file;
 	file.name	= name;
-	file.wad.onDisk = true; // the file is currently already on the disk, so it needs to be read to memory and then written to the archive again
-	file.wad.src	= path;
+	internal_file.onDisk = true; // the file is currently already on the disk, so it needs to be read to memory and then written to the archive again
+	internal_file.src	= path;
+	file.internal = internal_file;
 
 	m_files.push_back(file);
 	return true;
@@ -189,16 +224,17 @@ void* CWADArchive::read_file(const std::string& file, void* buf, size_t& buflen)
 	{
 		if (x.name == file)
 		{
+			const wad_internal_file_t& wad = std::any_cast<const wad_internal_file_t&>(x.internal);
 			/* If the file is newly added it will be marked "dirty" */
 			/* onDisk means that the file is on the disk, so we'll need to read it */
-			if (x.dirty && x.wad.onDisk)
+			if (x.dirty && wad.onDisk)
 			{
 			}
 			/* otherwise it's just memory */
-			else if (x.dirty && !x.wad.onDisk)
+			else if (x.dirty && !wad.onDisk)
 			{
-				size_t num = x.wad.dat.sz > buflen ? buflen : x.wad.dat.sz;
-				memcpy(buf, x.wad.dat.ptr, num);
+				size_t num = wad.dat.sz > buflen ? buflen : wad.dat.sz;
+				memcpy(buf, wad.dat.ptr, num);
 				buflen = num;
 				return buf;
 			}
@@ -266,6 +302,24 @@ void CWADArchive::dump_info(FILE* fs)
 {
 	fprintf(fs, "Archive: %s\n\tNum Files: %u\n\tDirectory offset: %u\n\tType: %s\n", this->m_onDiskName.c_str(), this->m_header.entries,
 		this->m_header.dir_offset, this->m_IWAD ? "IWAD" : "PWAD");
+}
+
+wad_internal_file_t::wad_internal_file_t(wad_internal_file_t&& other)
+{
+	this->onDisk = other.onDisk;
+	if (onDisk)
+		this->src = other.src;
+	else
+	{
+		if (other.dat.sz > 0 && other.dat.ptr)
+		{
+			this->dat.ptr = malloc(other.dat.sz);
+			memcpy(dat.ptr, other.dat.ptr, other.dat.sz);
+		}
+		else
+			this->dat.ptr = nullptr;
+		this->dat.sz = other.dat.sz;
+	}	
 }
 
 wad_internal_file_t::wad_internal_file_t(const wad_internal_file_t& other)

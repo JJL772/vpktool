@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unordered_map>
 #include <filesystem>
+#include <variant>
 
 #include "vpk.h"
 #include "vpk1.h"
@@ -20,20 +21,20 @@ namespace filesystem = std::filesystem;
 
 void show_help(int exit_code = 1);
 
-#define OP_INFO		    (1 << 0)
-#define OP_EXTRACT	    (1 << 1)
-#define OP_FIND		    (1 << 2)
-#define OP_ADD		    (1 << 3)
-#define OP_DELETE	    (1 << 4)
-#define OP_EXTRACT_SPECIFIC (1 << 5)
-#define OP_LIST		    (1 << 6)
-#define OP_LIST_INDEPTH	    (1 << 7)
-#define OP_CREATE_ARCHIVE   (1 << 8)
+#define OP_INFO		    (unsigned)(1 << 0)
+#define OP_EXTRACT	    (unsigned)(1 << 1)
+#define OP_FIND		    (unsigned)(1 << 2)
+#define OP_ADD		    (unsigned)(1 << 3)
+#define OP_DELETE	    (unsigned)(1 << 4)
+#define OP_EXTRACT_SPECIFIC (unsigned)(1 << 5)
+#define OP_LIST		    (unsigned)(1 << 6)
+#define OP_LIST_INDEPTH	    (unsigned)(1 << 7)
+#define OP_CREATE_ARCHIVE   (unsigned)(1 << 8)
 
-#define FL_VERBOSE (1 << 0)
-#define FL_DEBUG   (1 << 1)
-#define FL_TIMED   (1 << 2)
-#define FL_RECURSE (1 << 3)
+#define FL_VERBOSE (unsigned)(1 << 0)
+#define FL_DEBUG   (unsigned)(1 << 1)
+#define FL_TIMED   (unsigned)(1 << 2)
+#define FL_RECURSE (unsigned)(1 << 3)
 
 #define CHECK_PARM_INDEX(_i)                                                                                                                         \
 	if (i + _i >= argc)                                                                                                                          \
@@ -153,12 +154,14 @@ int main(int argc, char** argv)
 					op |= OP_CREATE_ARCHIVE;
 					CHECK_PARM_INDEX(1);
 					filename = argv[i + 1];
+					i++;
 				}
 				/* -m for the archive type */
 				else if (arg[g] == 'm')
 				{
 					CHECK_PARM_INDEX(1);
-					type_string = argv[i + 1];
+					type_string = std::string(argv[i + 1]);
+					i++;
 				}
 				else
 				{
@@ -179,12 +182,12 @@ int main(int argc, char** argv)
 	}
 
 	/* Spew errors if no file is specified */
-	if (file == "")
+	if (file == "" && !(op & OP_CREATE_ARCHIVE))
 		show_help(1);
 
 	std::filesystem::path filepath(file);
 
-	if (!std::filesystem::exists(filepath))
+	if (!std::filesystem::exists(filepath) && !(op & OP_CREATE_ARCHIVE))
 	{
 		printf("File %s does not exist\n", filepath.c_str());
 		exit(1);
@@ -201,17 +204,26 @@ int main(int argc, char** argv)
 	else
 	{
 		if (type_string == "vpk1")
+		{
 			bVPK1 = true;
+			VERBOSE_LOG("File is a VPK1\n");
+		}
 		if (type_string == "vpk2")
+		{
 			bVPK2 = true;
+			VERBOSE_LOG("File is a VPK2\n");
+		}
 		if (type_string == "wad")
+		{
 			bWAD = true;
+			VERBOSE_LOG("File is a WAD\n");
+		}
 	}
 
 	/* Check if invalid */
 	if (!bVPK1 && !bVPK2 && !bWAD)
 	{
-		printf("File %s is not a VPK or WAD File\n");
+		printf("File %s is not a VPK or WAD File\n", filename.c_str());
 		exit(1);
 	}
 
@@ -251,8 +263,13 @@ int main(int argc, char** argv)
 						if(pos != std::string::npos)
 							_file.replace(pos, file.size(), "");
 
-						VERBOSE_LOG("Added %s to archive as %s\n", p.path().string().c_str(), _file.c_str());
-						archive->add_file(_file, p.path().string());
+						if(!archive->add_file(_file, p.path().string()))
+						{
+							printf("Failed to add %s to the archive!\n", p.path().string().c_str());
+							exit(1);
+						}
+						else
+							VERBOSE_LOG("Added %s to archive as %s\n", p.path().string().c_str(), _file.c_str());
 					}
 				}
 			}
@@ -260,10 +277,10 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			for (auto file : create_files)
+			for (const auto& _file : create_files)
 			{
-				VERBOSE_LOG("Added %s to archive\n", file.c_str());
-				archive->add_file(file, file);
+				VERBOSE_LOG("Added %s to archive\n", _file.c_str());
+				archive->add_file(_file, _file);
 			}
 		}
 
@@ -340,12 +357,13 @@ int main(int argc, char** argv)
 			{
 				for (const auto& x : archive->get_files())
 				{
+					const vpk1_file_t& vpk1_file = std::any_cast<const vpk1_file_t&>(x.internal);
 					printf("%s/%s.%s\n", x.dir.c_str(), x.name.c_str(), x.ext.c_str());
 					printf("\tCRC32: %u 0x%X\n\tArchive: "
 					       "%u\n\tEntry offset: %u\n\tEntry "
 					       "Length: %u\n\tPreload bytes: %u\n",
-					       x.vpk1.dirent.crc, x.vpk1.dirent.crc, x.vpk1.dirent.archive_index, x.vpk1.dirent.entry_offset,
-					       x.vpk1.dirent.entry_length, x.vpk1.dirent.preload_bytes);
+					       vpk1_file.dirent.crc, vpk1_file.dirent.crc, vpk1_file.dirent.archive_index, vpk1_file.dirent.entry_offset,
+					       vpk1_file.dirent.entry_length, vpk1_file.dirent.preload_bytes);
 				}
 			}
 			else if (bWAD)
