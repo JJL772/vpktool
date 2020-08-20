@@ -126,20 +126,20 @@ bool CWADArchive::write(const std::string& filename)
 
 	/* Write out the file data */
 	size_t cur_offset = sizeof(wad_header_t);
-	if(this->m_dirty)
+	if (this->m_dirty)
 	{
-		for(auto& x : m_files)
+		for (auto& x : m_files)
 		{
 			wad_internal_file_t& wad = std::any_cast<wad_internal_file_t&>(x.internal);
-			if(wad.onDisk)
+			if (wad.onDisk)
 			{
-				printf("WROTE FILE\n");
 				FILE* _fs = fopen(wad.src.c_str(), "rb");
-				if(!_fs) continue;
+				if (!_fs)
+					continue;
 
 				/* Get the file size */
 				fseek(_fs, 0, SEEK_END);
-				x.size = ftell(_fs);
+				x.size	 = ftell(_fs);
 				x.offset = cur_offset;
 				fseek(_fs, 0, SEEK_SET);
 				/* Read into memory buffer */
@@ -182,14 +182,14 @@ bool CWADArchive::add_file(const std::string& name, void* pdat, size_t len)
 
 	this->m_dirty = true;
 
-	archive_file_t file;
+	archive_file_t	    file;
 	wad_internal_file_t internal_file;
-	file.name	 = name;
-	file.on_disk	 = false;
-	file.dirty	 = true;
-	internal_file.onDisk	 = false; // the file is currently in memory waiting to be written to disk
+	file.name	      = name;
+	file.on_disk	      = false;
+	file.dirty	      = true;
+	internal_file.onDisk  = false; // the file is currently in memory waiting to be written to disk
 	internal_file.dat.ptr = malloc(len);
-	internal_file.dat.sz	 = len;
+	internal_file.dat.sz  = len;
 	memcpy(internal_file.dat.ptr, pdat, len);
 	file.internal = internal_file;
 
@@ -204,12 +204,13 @@ bool CWADArchive::add_file(const std::string& name, const std::string& path)
 
 	this->m_dirty = true;
 
-	archive_file_t file;
+	archive_file_t	    file;
 	wad_internal_file_t internal_file;
-	file.name	= name;
-	internal_file.onDisk = true; // the file is currently already on the disk, so it needs to be read to memory and then written to the archive again
-	internal_file.src	= path;
-	file.internal = internal_file;
+	file.name = name;
+	internal_file.onDisk =
+		true; // the file is currently already on the disk, so it needs to be read to memory and then written to the archive again
+	internal_file.src = path;
+	file.internal	  = internal_file;
 
 	m_files.push_back(file);
 	return true;
@@ -304,7 +305,7 @@ void CWADArchive::dump_info(FILE* fs)
 		this->m_header.dir_offset, this->m_IWAD ? "IWAD" : "PWAD");
 }
 
-wad_internal_file_t::wad_internal_file_t(wad_internal_file_t&& other)
+wad_internal_file_t::wad_internal_file_t(wad_internal_file_t&& other) noexcept
 {
 	this->onDisk = other.onDisk;
 	if (onDisk)
@@ -319,7 +320,8 @@ wad_internal_file_t::wad_internal_file_t(wad_internal_file_t&& other)
 		else
 			this->dat.ptr = nullptr;
 		this->dat.sz = other.dat.sz;
-	}	
+	}
+	other.src = "";
 }
 
 wad_internal_file_t::wad_internal_file_t(const wad_internal_file_t& other)
@@ -340,11 +342,7 @@ wad_internal_file_t::wad_internal_file_t(const wad_internal_file_t& other)
 	}
 }
 
-wad_internal_file_t::wad_internal_file_t() : onDisk(false)
-{
-	dat.ptr = nullptr;
-	dat.sz	= 0;
-}
+wad_internal_file_t::wad_internal_file_t() : onDisk(false), src("") {}
 
 wad_internal_file_t::~wad_internal_file_t()
 {

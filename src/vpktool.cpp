@@ -1,10 +1,10 @@
 #include <chrono>
+#include <filesystem>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unordered_map>
-#include <filesystem>
 #include <variant>
 
 #include "vpk.h"
@@ -239,31 +239,31 @@ int main(int argc, char** argv)
 		{
 		}
 		/* If the -r flag is specified, the file list should be fully made of directories */
-		else if(flags & FL_RECURSE)
+		else if (flags & FL_RECURSE)
 		{
 			std::vector<std::string> actual_files;
 
 			/* Loop through the dirs and recursively add files to the real file list */
-			for(auto file : create_files)
+			for (auto file : create_files)
 			{
-				if(!filesystem::is_directory(file))
+				if (!filesystem::is_directory(file))
 				{
 					printf("%s is not a directory.\n", file.c_str());
 					exit(1);
 				}
-				
+
 				/* Recurse through directories and add all files */
-				for(auto& p : filesystem::recursive_directory_iterator(file))
+				for (auto& p : filesystem::recursive_directory_iterator(file))
 				{
-					if(!p.is_directory())
+					if (!p.is_directory())
 					{
 						/* Strip off the root directory of the file when we add it */
 						std::string _file = p.path().string();
-						size_t pos = _file.find(file);
-						if(pos != std::string::npos)
+						size_t	    pos	  = _file.find(file);
+						if (pos != std::string::npos)
 							_file.replace(pos, file.size(), "");
 
-						if(!archive->add_file(_file, p.path().string()))
+						if (!archive->add_file(_file, p.path().string()))
 						{
 							printf("Failed to add %s to the archive!\n", p.path().string().c_str());
 							exit(1);
@@ -273,7 +273,6 @@ int main(int argc, char** argv)
 					}
 				}
 			}
-
 		}
 		else
 		{
@@ -362,8 +361,8 @@ int main(int argc, char** argv)
 					printf("\tCRC32: %u 0x%X\n\tArchive: "
 					       "%u\n\tEntry offset: %u\n\tEntry "
 					       "Length: %u\n\tPreload bytes: %u\n",
-					       vpk1_file.dirent.crc, vpk1_file.dirent.crc, vpk1_file.dirent.archive_index, vpk1_file.dirent.entry_offset,
-					       vpk1_file.dirent.entry_length, vpk1_file.dirent.preload_bytes);
+					       vpk1_file.dirent.crc, vpk1_file.dirent.crc, vpk1_file.dirent.archive_index,
+					       vpk1_file.dirent.entry_offset, vpk1_file.dirent.entry_length, vpk1_file.dirent.preload_bytes);
 				}
 			}
 			else if (bWAD)

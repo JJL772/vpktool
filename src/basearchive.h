@@ -5,10 +5,10 @@
  */
 #pragma once
 
+#include <any>
 #include <list>
 #include <string>
 #include <vector>
-#include <any>
 
 #include "vpkdef.h"
 #include "waddef.h"
@@ -27,7 +27,7 @@ struct archive_file_t
 
 	/** Bit of a hack, but whatever. Archive formats may contain their own private data, just declare it here as a union
 	 * so we need to do less typing in the future */
-	//union
+	// union
 	//{
 	//	wad_internal_file_t wad;
 	//	vpk1_file_t	    vpk1;
