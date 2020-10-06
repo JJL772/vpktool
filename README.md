@@ -6,9 +6,10 @@ vpktool is a simple command-line utility used to modify VPK archives. This proje
 
 Below are the statuses of file formats supported by vpktool:
 
-* vpk version 1: WIP
-* vpk version 2: WIP
-* doom wad files: Planned
+* VPK Version 1: WIP
+* VPK Version 2: WIP
+* DOOM WAD files: Complete
+* Quake PAK files: WIP
 
 ### Installing
 
@@ -20,13 +21,12 @@ Binary releases are provided from Windows and Linux, and no 32-bit releases will
 
 Building is pretty simple, no special compile flags needed.
 
-For Linux, simply run `make` in the root directory. Set `CXX` in your environment to change the C++ compiler.
-It can be installed using `sudo make PREFIX=/usr/local/`
+To build on Linux (Or Windows!):
 
-For Windows, you'll need to cross compile from WSL or a Linux distro, though you can also use Mingw/Cygwin/MSYS2 to build natively on Windows.
-The procedure is the same as it is for building on Linux. Run `make -f Makefile.win` to build. 
-
-Since there are no special flags needed for the compiler, you can import this code into any C++ project that uses C++11 or higher with no modifications.
+```sh
+cmake ../
+make -j8 # For windows, just open the generated SLN in visual studio
+```
 
 ### Usage
 
