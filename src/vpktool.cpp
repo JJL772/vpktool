@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 	std::vector<std::string>		     delete_items;
 	std::unordered_map<std::string, std::string> extract_items;
 	bool					     modified = false;
-	std::string				     type_string;
+	std::string				     type_string = "";
 	std::string				     filename;
 	std::vector<std::string>		     create_files;
 	std::string				     manifest; /* JSON manifest of all the files in the archive */
@@ -193,7 +193,10 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	bool bVPK1, bVPK2, bWAD;
+	bool bVPK1 = false;
+	bool bVPK2 = false;
+	bool bWAD = false;
+	bool bPAK = false;
 
 	if (!(op & OP_CREATE_ARCHIVE))
 	{
@@ -208,15 +211,20 @@ int main(int argc, char** argv)
 			bVPK1 = true;
 			VERBOSE_LOG("File is a VPK1\n");
 		}
-		if (type_string == "vpk2")
+		else if (type_string == "vpk2")
 		{
 			bVPK2 = true;
 			VERBOSE_LOG("File is a VPK2\n");
 		}
-		if (type_string == "wad")
+		else if (type_string == "wad")
 		{
 			bWAD = true;
 			VERBOSE_LOG("File is a WAD\n");
+		}
+		else if(type_string == "pak")
+		{
+			bPAK = true;
+			VERBOSE_LOG("File is a PAK\n");
 		}
 	}
 
@@ -370,7 +378,7 @@ int main(int argc, char** argv)
 				for (const auto& x : archive->get_files())
 				{
 					printf("%s\n", x.name.c_str());
-					printf("\tOffset: %u\n\tSize: %u\n", x.offset, x.size);
+					printf("\tOffset: %u\n\tSize: %d\n", x.offset, x.size);
 				}
 			}
 		}
