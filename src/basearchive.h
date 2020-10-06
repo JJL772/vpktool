@@ -12,6 +12,7 @@
 
 #include "vpkdef.h"
 #include "waddef.h"
+#include "pakdef.h"
 
 namespace libvpk
 {
@@ -25,13 +26,6 @@ struct archive_file_t
 	bool	    on_disk : 1;
 	bool	    dirty : 1;
 
-	/** Bit of a hack, but whatever. Archive formats may contain their own private data, just declare it here as a union
-	 * so we need to do less typing in the future */
-	// union
-	//{
-	//	wad_internal_file_t wad;
-	//	vpk1_file_t	    vpk1;
-	//};
 	std::any internal;
 
 	/* Handle initialization */
