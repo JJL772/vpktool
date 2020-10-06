@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 project(vpktool)
 project(libvpk)
 
-set(LIBVPK_SRCS src/vpk1.cpp src/vpk2.cpp src/wad.cpp src/vpk.cpp)
+set(LIBVPK_SRCS src/vpk1.cpp src/vpk2.cpp src/wad.cpp src/vpk.cpp src/pak.cpp)
 set(VPKTOOL_SRCS src/vpktool.cpp)
 
 add_library(libvpk STATIC ${LIBVPK_SRCS})
