@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include <cstring>
 
 using namespace libvpk;
@@ -80,14 +81,13 @@ bool libvpk::CPAKArchive::add_file(const std::string& name, void* data, size_t l
 	
 }
 
-void libvpk::CPAKArchive::calc_offsets() 
-{
-	
-}
-
 bool libvpk::CPAKArchive::contains(const std::string& file) const 
 {
-	
+	for(const auto& x : m_files)
+	{
+		if(file == x.name) return true;
+	}
+	return false;
 }
 
 void libvpk::CPAKArchive::dump_info(FILE* stream) 
@@ -108,4 +108,40 @@ bool libvpk::CPAKArchive::remove_file(const std::string& file)
 bool libvpk::CPAKArchive::write(const std::string& filename) 
 {
 	
+}
+
+void* CPAKArchive::read_file(const std::string& file, void* buf, size_t& len)
+{
+	if(!m_fileHandle)
+		m_fileHandle = fopen(m_onDiskName.c_str(), "r");
+	if(!m_fileHandle) return nullptr;
+
+	for(const auto& x : m_files)
+	{
+		if(x.name == file)
+		{
+			/* Read the file now */
+			fseek(m_fileHandle, x.offset, SEEK_SET);
+			size_t reallen = len < x.size ? len : x.size;
+			len = fread(buf, x.size, 1, m_fileHandle);
+
+			if(!m_settings.bKeepFileHandles && m_fileHandle)
+				fclose(m_fileHandle);
+			return buf;
+		}
+	}
+
+
+	if(!m_settings.bKeepFileHandles && m_fileHandle)
+		fclose(m_fileHandle);
+	return nullptr;
+}
+
+size_t CPAKArchive::file_size(const std::string& file)
+{
+	for(const auto& x : m_files)
+	{
+		if(file == x.name) return x.size;
+	}
+	return 0;
 }

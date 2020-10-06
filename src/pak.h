@@ -18,6 +18,12 @@ struct pak_settings_t
 {
 	/* Whether or not to keep file handles open */
 	bool bKeepFileHandles;
+	/* Should file data be cached when the file is read? */
+	bool bCacheFileData;
+	/* Should all files be read into memory when the archive is loaded? */
+	bool bReadToMemory;
+	/* Maximum amount of data we can cache */
+	size_t nCacheSize;
 };
 
 static pak_settings_t g_DefaultPAKSettings = {
@@ -35,8 +41,6 @@ private:
 	bool			    m_error : 1;
 	pak_settings_t		    m_settings;
 	FILE*			    m_fileHandle;
-
-	void calc_offsets();
 
 public:
 	explicit CPAKArchive(pak_settings_t settings = g_DefaultPAKSettings);
@@ -118,6 +122,8 @@ public:
 	 * @brief Dumps various info about the VPK to the specified stream
 	 */
 	virtual void dump_info(FILE* stream);
+
+	virtual size_t file_size(const std::string& file);
 };
 
 } // namespace libvpk

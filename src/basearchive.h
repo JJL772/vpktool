@@ -93,6 +93,13 @@ public:
 	virtual void* read_file(const std::string& file, void* buf, size_t& len) = 0;
 
 	/**
+	 * @brief Returns the size of the specified file
+	 * @param file Name of the file
+	 * @return Size of file in bytes
+	 */
+	virtual size_t file_size(const std::string& file) = 0;
+
+	/**
 	 * @brief Extracts the specified file to the disk
 	 * @param file Name of the file to extract
 	 * @param tgt Target file to extract to

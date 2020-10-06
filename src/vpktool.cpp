@@ -10,6 +10,7 @@
 #include "vpk.h"
 #include "vpk1.h"
 #include "wad.h"
+#include "pak.h"
 
 using namespace libvpk;
 
@@ -241,6 +242,8 @@ int main(int argc, char** argv)
 		IBaseArchive* archive = nullptr;
 		if (bWAD)
 			archive = new CWADArchive();
+		else if(bPAK)
+			archive = new CPAKArchive();
 
 		/* File manifests will automatically override recurse flags */
 		if (manifest != "")
