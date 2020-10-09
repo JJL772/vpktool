@@ -305,6 +305,16 @@ void CWADArchive::dump_info(FILE* fs)
 		this->m_header.dir_offset, this->m_IWAD ? "IWAD" : "PWAD");
 }
 
+size_t CWADArchive::file_size(const std::string& file)
+{
+	for(const auto& x : this->m_files)
+	{
+		if(x.name == file)
+			return x.size;
+	}
+	return 0;
+}
+
 wad_internal_file_t::wad_internal_file_t(wad_internal_file_t&& other) noexcept
 {
 	this->onDisk = other.onDisk;

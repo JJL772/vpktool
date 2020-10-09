@@ -132,6 +132,8 @@ public:
 	 * @brief Dumps various info about the VPK to the specified stream
 	 */
 	virtual void dump_info(FILE* stream);
+
+	virtual size_t file_size(const std::string& file);
 };
 
 } // namespace libvpk
