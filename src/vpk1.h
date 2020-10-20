@@ -156,6 +156,9 @@ public:
 			return "No error";
 		}
 	}
+
+	virtual size_t file_size(const std::string& file);
+
 };
 
 } // namespace libvpk

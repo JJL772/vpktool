@@ -479,3 +479,8 @@ bool CVPK1Archive::write(const std::string& str)
 
 	return true;
 }
+
+size_t CVPK1Archive::file_size(const std::string& file)
+{
+	return 0;
+}
