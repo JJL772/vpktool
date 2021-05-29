@@ -29,14 +29,14 @@ BraceWrapping:
   AfterClass:      true
   AfterControlStatement: true
   AfterEnum:       true
-  AfterFunction:   true
-  AfterNamespace:  true
+  AfterFunction:   false
+  AfterNamespace:  false
   AfterObjCDeclaration: true
   AfterStruct:     true
   AfterUnion:      true
   AfterExternBlock: true
   BeforeCatch:     true
-  BeforeElse:      true
+  BeforeElse:      false
   IndentBraces:    true
   SplitEmptyFunction: true
   SplitEmptyRecord: true
@@ -82,7 +82,7 @@ IncludeIsMainSourceRegex: ''
 IndentCaseLabels: false
 IndentGotoLabels: true
 IndentPPDirectives: None
-IndentWidth:     8
+IndentWidth:     4
 IndentWrappedFunctionNames: false
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
@@ -90,7 +90,7 @@ KeepEmptyLinesAtTheStartOfBlocks: true
 MacroBlockBegin: ''
 MacroBlockEnd:   ''
 MaxEmptyLinesToKeep: 1
-NamespaceIndentation: None
+NamespaceIndentation: All
 ObjCBinPackProtocolList: Auto
 ObjCBlockIndentWidth: 2
 ObjCSpaceAfterProperty: false
@@ -130,7 +130,7 @@ Standard:        Latest
 StatementMacros:
   - Q_UNUSED
   - QT_REQUIRE_VERSION
-TabWidth:        8
+TabWidth:        4
 UseCRLF:         false
 UseTab:          Always
 ...
