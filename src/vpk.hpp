@@ -77,6 +77,7 @@ namespace vpklib
 			std::uint16_t archive_index;
 			std::uint32_t entry_offset;
 			std::uint32_t entry_length;
+			std::uint16_t terminator;
 		} _PACKED_ATTR;
 
 		struct ArchiveMD5SectionEntry
@@ -94,6 +95,8 @@ namespace vpklib
 			char unknown[16];
 		} _PACKED_ATTR;
 
+#pragma pack()
+
 		// This should not be read off the disk
 		// Instead create ptrs to the pubkey and signature buffers
 		struct SignatureSection
@@ -103,9 +106,8 @@ namespace vpklib
 
 			std::uint32_t signature_size;
 			std::unique_ptr<byte> signature;
-		} _PACKED_ATTR;
+		};
 	}
-#pragma pack()
 
 	std::uint32_t get_vpk_version(const std::filesystem::path &path);
 	std::uint32_t get_vpk_version(const void* mem);
@@ -143,7 +145,7 @@ namespace vpklib
 			std::uint32_t crc = 0;
 
 			std::uint16_t preload_size = 0;
-			std::unique_ptr<byte> preload_data;
+			std::unique_ptr<byte[]> preload_data;
 
 			std::uint32_t offset = 0;
 			std::uint32_t length = 0;
@@ -155,7 +157,11 @@ namespace vpklib
 		std::string m_baseArchiveName;
 
 		std::unordered_map<std::string, VPKFileHandle> m_handles;
+		std::vector<std::string> m_fileNames; // TODO: Make this less garbage
 		std::vector<std::unique_ptr<File>> m_files;
+
+		std::unique_ptr<FILE*[]> m_fileHandles; // List of all open file handles to the individual archives
+		std::uint16_t m_maxPakIndex = 0;
 
 		std::vector<vpk2::ArchiveMD5SectionEntry> m_archiveSectionEntries;
 		vpk2::OtherMD5Section m_otherMD5Section;
@@ -168,9 +174,9 @@ namespace vpklib
 
 		static VPK2Archive* read_from_disk(const std::filesystem::path& path);
 
-		static VPK2Archive* read_from_mem(const void* mem, size_t size);
-
 		VPKFileHandle find_file(const std::string& name);
+
+		const std::string& base_archive_name() const { return m_baseArchiveName; };
 
 		size_t get_file_size(const std::string& name);
 		size_t get_file_size(VPKFileHandle handle);
@@ -178,20 +184,28 @@ namespace vpklib
 		size_t get_file_preload_size(const std::string& name);
 		size_t get_file_preload_size(VPKFileHandle handle);
 
-		UniquePtr<void> get_file_preload_data(const std::string& name);
-		UniquePtr<void> get_file_preload_data(VPKFileHandle handle);
+		UniquePtr<char[]> get_file_preload_data(const std::string& name);
+		UniquePtr<char[]> get_file_preload_data(VPKFileHandle handle);
+		std::size_t get_file_preload_data(VPKFileHandle handle, void* buffer, std::size_t bufferSize);
+		std::size_t get_file_preload_data(const std::string& name, void* buffer, std::size_t bufferSize);
 
-		std::pair<SizeT, UniquePtr<void>> get_file_data(const std::string& name);
-		std::pair<SizeT, UniquePtr<void>> get_file_data(VPKFileHandle handle);
+		std::pair<SizeT, UniquePtr<char[]>> get_file_data(const std::string& name);
+		std::pair<SizeT, UniquePtr<char[]>> get_file_data(VPKFileHandle handle);
+
+		size_t get_file_count() const { return m_fileNames.size(); };
 
 		class VPK2Search get_all_files();
+
+		std::string get_file_name(VPKFileHandle handle);
+
+		VPK2Search find_in_directory(const std::string& path);
 
 	};
 
 	class VPK2Search
 	{
 	private:
-		class VPK2Archive* m_archive;
+		VPK2Archive* m_archive;
 		VPKFileHandle m_start;
 		VPKFileHandle m_end;
 	public:
@@ -207,6 +221,7 @@ namespace vpklib
 		{
 		private:
 			VPKFileHandle m_handle;
+			VPK2Search& m_search;
 		public:
 			using iterator_category = std::forward_iterator_tag;
 			using difference_type = std::ptrdiff_t;
@@ -214,9 +229,9 @@ namespace vpklib
 			using pointer = VPKFileHandle*;
 			using reference = VPKFileHandle&;
 
-			Iterator(value_type handle) : m_handle(handle) {};
+			Iterator(value_type handle, VPK2Search& search) : m_handle(handle), m_search(search) {};
 
-			value_type operator*() const { return m_handle; };
+			std::pair<value_type, const std::string> operator*() const { return {m_handle, m_search.m_archive->get_file_name(m_handle)}; };
 			pointer operator->() { return &m_handle; };
 			Iterator& operator++() { m_handle++; return *this; };
 			Iterator operator++(int) { Iterator t = *this; ++(*this); return t; };
@@ -224,7 +239,7 @@ namespace vpklib
 			friend bool operator!=(const Iterator& a, const Iterator& b) { return a.m_handle != b.m_handle; };
 		};
 
-		Iterator begin() { return Iterator(m_start); };
-		Iterator end() { return Iterator(m_end); };
+		Iterator begin() { return Iterator(m_start, *this); };
+		Iterator end() { return Iterator(m_end, *this); };
 	};
 }

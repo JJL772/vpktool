@@ -9,7 +9,7 @@ namespace vpklib {
 
 		struct ReadContext
 		{
-			std::uint64_t pos;
+			std::uint64_t pos = 0;
 			std::uint64_t size;
 			const char* data;
 
@@ -17,22 +17,34 @@ namespace vpklib {
 				data(_data),
 				size(_size)
 			{
-
 			}
 
 			template<class T>
 			T read() {
-				T* dat = static_cast<T*>(data + pos);
+				const T* dat = reinterpret_cast<const T*>(data + pos);
 				pos += sizeof(T);
-				return dat;
+				return (*dat);
 			}
 
 			void read_string(char* buffer) {
 				while(data[pos] != 0) {
 					if(pos >= size)
 						break;
-					*buffer = data[pos++];
+					(*buffer) = data[pos];
+					buffer++;
+					pos++;
 				}
+				pos++;
+				*buffer = 0;
+			}
+
+			size_t read_bytes(char* buffer, size_t num) {
+				if(num + pos >= size)
+					return 0;
+
+				std::memcpy(buffer, data, num);
+				pos += num;
+				return num;
 			}
 
 			void set_pos(std::uint64_t pos) {
