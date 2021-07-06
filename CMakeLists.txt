@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(vpktool)
 project(libvpk)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(LIBVPK_SRCS
         src/vpk1.cpp

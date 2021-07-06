@@ -37,7 +37,7 @@ int main(int argc, char** argv)
 
 	printf("Preload size: %zu\n", archive->get_file_preload_size(mat));
 	printf("Preload data: %s\n", archive->get_file_preload_data(mat).get());
-
+	printf("Signature size: %llu\n", archive->get_signature_size());
 
 
 	auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();

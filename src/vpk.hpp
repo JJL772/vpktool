@@ -102,10 +102,10 @@ namespace vpklib
 		struct SignatureSection
 		{
 			std::uint32_t pubkey_size;
-			std::unique_ptr<byte> pubkey;
+			std::unique_ptr<byte[]> pubkey;
 
 			std::uint32_t signature_size;
-			std::unique_ptr<byte> signature;
+			std::unique_ptr<byte[]> signature;
 		};
 	}
 
@@ -160,6 +160,7 @@ namespace vpklib
 		std::vector<std::string> m_fileNames; // TODO: Make this less garbage
 		std::vector<std::unique_ptr<File>> m_files;
 
+		FILE* m_dirHandle;
 		std::unique_ptr<FILE*[]> m_fileHandles; // List of all open file handles to the individual archives
 		std::uint16_t m_maxPakIndex = 0;
 
@@ -171,34 +172,149 @@ namespace vpklib
 		bool read(const void* mem, size_t size);
 
 	public:
-
+		/**
+		 * @brief Reads the file from disk 
+		 * @param path 
+		 * @return VPK2Archive* 
+		 */
 		static VPK2Archive* read_from_disk(const std::filesystem::path& path);
 
+		/**
+		 * @brief Finds a single file in the archive 
+		 * @param name Name of the file to look for 
+		 * @return VPKFileHandle 
+		 */
 		VPKFileHandle find_file(const std::string& name);
 
+		/**
+		 * @brief Returns the base archive name
+		 * ex: myarchive in myarchive_dir.vpk
+		 * @return const std::string& 
+		 */
 		const std::string& base_archive_name() const { return m_baseArchiveName; };
 
+		/**
+		 * @brief Returns the total size of the specified file in bytes
+		 * @param name Path to file or it's handle
+		 * @return size_t Size in bytes of the file, including any preload data
+		 */
 		size_t get_file_size(const std::string& name);
 		size_t get_file_size(VPKFileHandle handle);
 
+		/**
+		 * @brief Returns the size of the preload data associated with the specified file 
+		 * @param file The file handle or path to the file 
+		 * @return size_t Size of the preload data in bytes
+		 */
 		size_t get_file_preload_size(const std::string& name);
 		size_t get_file_preload_size(VPKFileHandle handle);
 
-		UniquePtr<char[]> get_file_preload_data(const std::string& name);
-		UniquePtr<char[]> get_file_preload_data(VPKFileHandle handle);
+		/**
+		 * @brief Returns the file preload data associated with the file
+		 * 
+		 * @param name Path to the file or a handle 
+		 * @return ptr Pointer to the data
+		 */
+		std::unique_ptr<char[]> get_file_preload_data(const std::string& name);
+		std::unique_ptr<char[]> get_file_preload_data(VPKFileHandle handle);
+		
+		/**
+		 * @brief Copies file preload data into the specified buffer
+		 * @param handle Handle or path to file
+		 * @param buffer Buffer to copy into
+		 * @param bufferSize Size of the buffer to copy into. Used to prevent overruns
+		 * @return std::size_t Number of bytes copied
+		 */
 		std::size_t get_file_preload_data(VPKFileHandle handle, void* buffer, std::size_t bufferSize);
 		std::size_t get_file_preload_data(const std::string& name, void* buffer, std::size_t bufferSize);
 
-		std::pair<SizeT, UniquePtr<char[]>> get_file_data(const std::string& name);
-		std::pair<SizeT, UniquePtr<char[]>> get_file_data(VPKFileHandle handle);
+		/**
+		 * @brief Returns a unique ptr to the file data.
+		 * If there is preload data associated with the file, it is concatenated with the actual data
+		 * @param name Path to file or handle of file
+		 * @return std::pair<SizeT, std::unique_ptr<char[]>> First item in pair is the size of the data, second item is unique ptr to data
+		 */
+		std::pair<SizeT, std::unique_ptr<char[]>> get_file_data(const std::string& name);
+		std::pair<SizeT, std::unique_ptr<char[]>> get_file_data(VPKFileHandle handle);
+		
+		/**
+		 * @brief Copies the file's data into the specified buffer 
+		 * 
+		 * @param handle Handle or path to the file
+		 * @param buffer Target buffer
+		 * @param bufferSize Size of the target buffer
+		 * @return size_t Number of bytes copied
+		 */
+		size_t get_file_data(VPKFileHandle handle, void* buffer, size_t bufferSize);
+		size_t get_file_data(const std::string& name, void* buffer, size_t bufferSize);
 
+		/**
+		 * @brief Returns the number of files in this archive 
+		 * @return size_t 
+		 */
 		size_t get_file_count() const { return m_fileNames.size(); };
 
+		/**
+		 * @brief Returns a generalized search that encompasses all files in the archive 
+		 * @return VPK2Search 
+		 */
 		class VPK2Search get_all_files();
 
+		/**
+		 * @brief Returns the file name for the handle 
+		 * @param handle 
+		 * @return std::string 
+		 */
 		std::string get_file_name(VPKFileHandle handle);
 
+		/**
+		 * @brief Finds all files in a directory
+		 * @param path Directory path
+		 * @return VPK2Search 
+		 */
 		VPK2Search find_in_directory(const std::string& path);
+
+		/**
+		 * @brief Returns the size of the public key
+		 * @return size_t 
+		 */
+		size_t get_pubkey_size();
+		
+		/**
+		 * @brief Returns a buffer that contains the public key 
+		 * @return 
+		 */
+		std::unique_ptr<char[]> get_pubkey();
+		size_t get_pubkey(void* buffer, size_t bufSize);
+
+		/**
+		 * @brief Returns the signature size 
+		 * @return size_t 
+		 */
+		size_t get_signature_size();
+		
+		/**
+		 * @brief Returns a buffer that contains the signature 
+		 * @return std::unique_ptr<char[]> 
+		 */
+		std::unique_ptr<char[]> get_signature();
+		size_t get_signature(void* buffer, size_t bufSize);
+		
+		/**
+		 * @brief Returns the archive index the file is in
+		 * @param name Path or handle to file
+		 * @return uint16_t Index
+		 */
+		std::uint16_t get_file_archive_index(const std::string& name);
+		std::uint16_t get_file_archive_index(VPKFileHandle handle);
+		
+		/**
+		 * @brief Returns the file's CRC. NOTE: This returns the reported CRC 
+		 * @param name Name or handle to file 
+		 * @return std::uint32_t CRC32
+		 */
+		std::uint32_t get_file_crc32(const std::string& name);
+		std::uint32_t get_file_crc32(VPKFileHandle handle);
 
 	};
 
