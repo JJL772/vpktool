@@ -17,17 +17,12 @@ namespace vpklib
 	constexpr std::uint32_t VPK_SIGNATURE = 0x55AA1234;
 	constexpr std::uint16_t DIRECTORY_TERMINATOR = 0xFFFF;
 
-	using MD5_t = char[16];
+	using md5_t = char[16];
 	using byte = char;
 
-	using VPKFileHandle = std::uint64_t;
+	using vpk_file_handle = std::uint64_t;
 
-	constexpr VPKFileHandle INVALID_HANDLE = ~0ull;
-
-	// Aliases so I don't go crazy
-	template<class T>
-	using UniquePtr = std::unique_ptr<T>;
-	using SizeT = std::uint64_t ;
+	constexpr vpk_file_handle INVALID_HANDLE = ~0ull;
 
 #pragma pack(1)
 
@@ -85,13 +80,13 @@ namespace vpklib
 			std::uint32_t archive_index;
 			std::uint32_t start_offset;
 			std::uint32_t count;
-			MD5_t checksum;
+			md5_t		  checksum;
 		} _PACKED_ATTR;
 
 		struct OtherMD5Section
 		{
-			MD5_t tree_checksum;
-			MD5_t archive_md5_section_checksum;
+			md5_t tree_checksum;
+			md5_t archive_md5_section_checksum;
 			char unknown[16];
 		} _PACKED_ATTR;
 
@@ -133,10 +128,10 @@ namespace vpklib
 	};
 
 
-	class VPK2Archive
+	class vpk2_archive
 	{
 	private:
-		friend class VPK2Search;
+		friend class vpk2_search;
 
 		struct File
 		{
@@ -156,7 +151,7 @@ namespace vpklib
 		bool m_dirty = false;
 		std::string m_baseArchiveName;
 
-		std::unordered_map<std::string, VPKFileHandle> m_handles;
+		std::unordered_map<std::string, vpk_file_handle> m_handles;
 		std::vector<std::string> m_fileNames; // TODO: Make this less garbage
 		std::vector<std::unique_ptr<File>> m_files;
 
@@ -177,14 +172,14 @@ namespace vpklib
 		 * @param path 
 		 * @return VPK2Archive* 
 		 */
-		static VPK2Archive* read_from_disk(const std::filesystem::path& path);
+		static vpk2_archive* read_from_disk(const std::filesystem::path& path);
 
 		/**
 		 * @brief Finds a single file in the archive 
 		 * @param name Name of the file to look for 
 		 * @return VPKFileHandle 
 		 */
-		VPKFileHandle find_file(const std::string& name);
+		vpk_file_handle find_file(const std::string& name);
 
 		/**
 		 * @brief Returns the base archive name
@@ -199,7 +194,7 @@ namespace vpklib
 		 * @return size_t Size in bytes of the file, including any preload data
 		 */
 		size_t get_file_size(const std::string& name);
-		size_t get_file_size(VPKFileHandle handle);
+		size_t get_file_size(vpk_file_handle handle);
 
 		/**
 		 * @brief Returns the size of the preload data associated with the specified file 
@@ -207,7 +202,7 @@ namespace vpklib
 		 * @return size_t Size of the preload data in bytes
 		 */
 		size_t get_file_preload_size(const std::string& name);
-		size_t get_file_preload_size(VPKFileHandle handle);
+		size_t get_file_preload_size(vpk_file_handle handle);
 
 		/**
 		 * @brief Returns the file preload data associated with the file
@@ -216,7 +211,7 @@ namespace vpklib
 		 * @return ptr Pointer to the data
 		 */
 		std::unique_ptr<char[]> get_file_preload_data(const std::string& name);
-		std::unique_ptr<char[]> get_file_preload_data(VPKFileHandle handle);
+		std::unique_ptr<char[]> get_file_preload_data(vpk_file_handle handle);
 		
 		/**
 		 * @brief Copies file preload data into the specified buffer
@@ -225,17 +220,17 @@ namespace vpklib
 		 * @param bufferSize Size of the buffer to copy into. Used to prevent overruns
 		 * @return std::size_t Number of bytes copied
 		 */
-		std::size_t get_file_preload_data(VPKFileHandle handle, void* buffer, std::size_t bufferSize);
+		std::size_t get_file_preload_data(vpk_file_handle handle, void* buffer, std::size_t bufferSize);
 		std::size_t get_file_preload_data(const std::string& name, void* buffer, std::size_t bufferSize);
 
 		/**
 		 * @brief Returns a unique ptr to the file data.
 		 * If there is preload data associated with the file, it is concatenated with the actual data
 		 * @param name Path to file or handle of file
-		 * @return std::pair<SizeT, std::unique_ptr<char[]>> First item in pair is the size of the data, second item is unique ptr to data
+		 * @return std::pair<SizeT, std::unique_ptr<char[]>> First item in pair is the size of the data, second item is shared ptr to data
 		 */
-		std::pair<SizeT, std::unique_ptr<char[]>> get_file_data(const std::string& name);
-		std::pair<SizeT, std::unique_ptr<char[]>> get_file_data(VPKFileHandle handle);
+		std::pair<std::size_t, std::shared_ptr<char[]>> get_file_data(const std::string& name);
+		std::pair<std::size_t, std::shared_ptr<char[]>> get_file_data(vpk_file_handle handle);
 		
 		/**
 		 * @brief Copies the file's data into the specified buffer 
@@ -245,7 +240,7 @@ namespace vpklib
 		 * @param bufferSize Size of the target buffer
 		 * @return size_t Number of bytes copied
 		 */
-		size_t get_file_data(VPKFileHandle handle, void* buffer, size_t bufferSize);
+		size_t get_file_data(vpk_file_handle handle, void* buffer, size_t bufferSize);
 		size_t get_file_data(const std::string& name, void* buffer, size_t bufferSize);
 
 		/**
@@ -258,21 +253,21 @@ namespace vpklib
 		 * @brief Returns a generalized search that encompasses all files in the archive 
 		 * @return VPK2Search 
 		 */
-		class VPK2Search get_all_files();
+		class vpk2_search get_all_files();
 
 		/**
 		 * @brief Returns the file name for the handle 
 		 * @param handle 
 		 * @return std::string 
 		 */
-		std::string get_file_name(VPKFileHandle handle);
+		std::string get_file_name(vpk_file_handle handle);
 
 		/**
 		 * @brief Finds all files in a directory
 		 * @param path Directory path
 		 * @return VPK2Search 
 		 */
-		VPK2Search find_in_directory(const std::string& path);
+		vpk2_search find_in_directory(const std::string& path);
 
 		/**
 		 * @brief Returns the size of the public key
@@ -306,7 +301,7 @@ namespace vpklib
 		 * @return uint16_t Index
 		 */
 		std::uint16_t get_file_archive_index(const std::string& name);
-		std::uint16_t get_file_archive_index(VPKFileHandle handle);
+		std::uint16_t get_file_archive_index(vpk_file_handle handle);
 		
 		/**
 		 * @brief Returns the file's CRC. NOTE: This returns the reported CRC 
@@ -314,19 +309,18 @@ namespace vpklib
 		 * @return std::uint32_t CRC32
 		 */
 		std::uint32_t get_file_crc32(const std::string& name);
-		std::uint32_t get_file_crc32(VPKFileHandle handle);
+		std::uint32_t get_file_crc32(vpk_file_handle handle);
 
 	};
 
-	class VPK2Search
+	class vpk2_search
 	{
 	private:
-		VPK2Archive* m_archive;
-		VPKFileHandle m_start;
-		VPKFileHandle m_end;
+		vpk2_archive* m_archive;
+		vpk_file_handle m_start;
+		vpk_file_handle m_end;
 	public:
-
-		VPK2Search(VPKFileHandle start, VPKFileHandle end, VPK2Archive* archive) :
+		vpk2_search(vpk_file_handle start, vpk_file_handle end, vpk2_archive* archive) :
             m_start(start),
 			m_end(end),
 			m_archive(archive)
@@ -336,16 +330,16 @@ namespace vpklib
 		struct Iterator
 		{
 		private:
-			VPKFileHandle m_handle;
-			VPK2Search& m_search;
+			vpk_file_handle m_handle;
+			vpk2_search& m_search;
 		public:
 			using iterator_category = std::forward_iterator_tag;
 			using difference_type = std::ptrdiff_t;
-			using value_type = VPKFileHandle;
-			using pointer = VPKFileHandle*;
-			using reference = VPKFileHandle&;
+			using value_type = vpk_file_handle;
+			using pointer = vpk_file_handle*;
+			using reference = vpk_file_handle&;
 
-			Iterator(value_type handle, VPK2Search& search) : m_handle(handle), m_search(search) {};
+			Iterator(value_type handle, vpk2_search& search) : m_handle(handle), m_search(search) {};
 
 			std::pair<value_type, const std::string> operator*() const { return {m_handle, m_search.m_archive->get_file_name(m_handle)}; };
 			pointer operator->() { return &m_handle; };

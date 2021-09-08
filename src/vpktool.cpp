@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 
 	auto start = std::chrono::steady_clock::now();
 
-	auto archive = vpklib::VPK2Archive::read_from_disk(file);
+	auto archive = vpklib::vpk2_archive::read_from_disk(file);
 
 	auto end = std::chrono::steady_clock::now();
 
@@ -33,11 +33,17 @@ int main(int argc, char** argv)
 		}
 	}
 
-	auto mat = archive->find_file("scripts/game_sounds_passtime.txt");
+	auto mat = archive->find_file("materials/nature/3east.vmt");
+	if(mat == vpklib::INVALID_HANDLE) {
+		printf("Failed to find materials/nature/3east.vmt\n");
+	}
 
 	printf("Preload size: %zu\n", archive->get_file_preload_size(mat));
 	printf("Preload data: %s\n", archive->get_file_preload_data(mat).get());
-	printf("Signature size: %llu\n", archive->get_signature_size());
+	printf("Signature size: %zu\n", archive->get_signature_size());
+	auto data = archive->get_file_data(mat);
+	printf("Data size: %zu\n", data.first);
+	printf("Data:\n%s\n", data.second.get());
 
 
 	auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
