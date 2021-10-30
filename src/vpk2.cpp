@@ -18,16 +18,25 @@ bool vpk2_archive::read(const void* mem, size_t size) {
 	// Total size of file data contained within the _dir vpk
 	size_t dirFileDataSize = 0;
 
-	try
-	{
+	//try
+	//{
 		auto header = stream.read<vpk2::Header>();
 
-		if(header.signature != VPK_SIGNATURE || header.version != vpk2::VERSION) {
+		if(header.signature != VPK_SIGNATURE || (header.version != 2 && header.version != 1)) {
 			printf("Signature did not match %X    ver %d\n", header.signature, header.version);
 			return false;
 		}
-
-		auto fileDataOffset = header.file_data_section_size + sizeof(vpk2::Header);
+		
+		this->version = header.version;
+		
+		auto sectionMD5Size = 0ull;
+		auto signatureSectionSize = 0ull;
+		
+		if(header.version == 2) {
+			auto headerext = stream.read<vpk2::HeaderExt>();
+			sectionMD5Size = headerext.archive_md5_section_size;
+			signatureSectionSize = headerext.signature_section_size;
+		}
 
 		// Layer 1: extension
 		while(true) {
@@ -100,33 +109,41 @@ bool vpk2_archive::read(const void* mem, size_t size) {
 		}
 		
 		// skip the file data stored in this VPK so we can read actually useful stuff
-		stream.seek(dirFileDataSize);
+		if(dirFileDataSize)
+		stream.set_pos(dirFileDataSize);
 		
 		// Step 2: Post-dir tree and file data structures
 		
 		// Read the archive md5 sections 
-		for(size_t i = 0; i < (header.archive_md5_section_size / sizeof(vpk2::ArchiveMD5SectionEntry)); i++) {
-			m_archiveSectionEntries.push_back(stream.read<vpk2::ArchiveMD5SectionEntry>());
+		if(version == 2) {
+			for(size_t i = 0; i < (sectionMD5Size / sizeof(vpk2::ArchiveMD5SectionEntry)); i++) {
+				m_archiveSectionEntries.push_back(stream.read<vpk2::ArchiveMD5SectionEntry>());
+			}
 		}
 		
 		// Read single OtherMD5Section
-		m_otherMD5Section = stream.read<vpk2::OtherMD5Section>();
+		if(version == 2) {
+			m_otherMD5Section = stream.read<vpk2::OtherMD5Section>();
+		}
 		
 		// Read signature section 
-		auto pubKeySize = stream.read<uint32_t>();
-		m_signatureSection.pubkey_size = pubKeySize;
-		m_signatureSection.pubkey = std::make_unique<char[]>(pubKeySize);
-		stream.read_bytes(m_signatureSection.pubkey.get(), pubKeySize);
+		if(signatureSectionSize > 0 && version == 2) {
+			auto pubKeySize = stream.read<uint32_t>();
+			m_signatureSection.pubkey_size = pubKeySize;
+			m_signatureSection.pubkey = std::make_unique<char[]>(pubKeySize);
+			stream.read_bytes(m_signatureSection.pubkey.get(), pubKeySize);
 		
-		auto sigSize = stream.read<uint32_t>();
-		m_signatureSection.signature_size = sigSize;
-		m_signatureSection.signature = std::make_unique<char[]>(sigSize);
-		stream.read_bytes(m_signatureSection.signature.get(), sigSize);
-	}
-	catch (std::exception& any)
-	{
-		return false;
-	}
+			auto sigSize = stream.read<uint32_t>();
+			m_signatureSection.signature_size = sigSize;
+			m_signatureSection.signature = std::make_unique<char[]>(sigSize);
+			stream.read_bytes(m_signatureSection.signature.get(), sigSize);
+		}
+	//}
+	//catch (std::exception& any)
+	//{
+	//	return false;
+	//}
+	
 	m_fileHandles = std::make_unique<FILE*[]>(m_maxPakIndex);
 
 	return true;

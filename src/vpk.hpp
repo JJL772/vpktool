@@ -53,12 +53,18 @@ namespace vpklib
 	{
 		constexpr std::uint32_t VERSION = 2;
 
+		// VPK1/2 combined header
 		struct Header
 		{
 			std::uint32_t signature;
 			std::uint32_t version;
 
 			std::uint32_t tree_size;
+		};
+		
+		// Extended VPK2 header
+		struct HeaderExt
+		{
 			std::uint32_t file_data_section_size;
 			std::uint32_t archive_md5_section_size;
 			std::uint32_t other_md5_section_size;
@@ -132,6 +138,8 @@ namespace vpklib
 	{
 	private:
 		friend class vpk2_search;
+		
+		std::uint32_t version = 2;
 
 		struct File
 		{
@@ -173,6 +181,12 @@ namespace vpklib
 		 * @return VPK2Archive* 
 		 */
 		static vpk2_archive* read_from_disk(const std::filesystem::path& path);
+
+		/**
+		 * @brief Returns the version of the archive (1 or 2)
+		 * @return int Version
+		 */
+		int get_version() const { return version; };
 
 		/**
 		 * @brief Finds a single file in the archive 
