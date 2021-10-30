@@ -8,9 +8,9 @@
 
 #include "ezOptionParser.hpp"
 
-void list(vpklib::vpk2_archive* archive, bool details);
-void info(vpklib::vpk2_archive* archive);
-void extract(vpklib::vpk2_archive* archive, ez::ezOptionParser& parser);
+void list(vpklib::vpk_archive* archive, bool details);
+void info(vpklib::vpk_archive* archive);
+void extract(vpklib::vpk_archive* archive, ez::ezOptionParser& parser);
 
 int main(int argc, const char** argv)
 {
@@ -81,7 +81,7 @@ int main(int argc, const char** argv)
 	}
 	
 	// Open the archive
-	auto archive = vpklib::vpk2_archive::read_from_disk(opt.lastArgs[0]->c_str());
+	auto archive = vpklib::vpk_archive::read_from_disk(opt.lastArgs[0]->c_str());
 	
 	if(!archive) {
 		fprintf(stderr, "ERROR: Failed to open %s\n", opt.lastArgs[0]->c_str());
@@ -110,7 +110,7 @@ int main(int argc, const char** argv)
 	return 0;
 }
 
-void list(vpklib::vpk2_archive* archive, bool details) {
+void list(vpklib::vpk_archive* archive, bool details) {
 	
 	auto search = archive->get_all_files();
 	for(const auto& [fh, name] : search) {
@@ -125,7 +125,7 @@ void list(vpklib::vpk2_archive* archive, bool details) {
 	
 }
 
-void info(vpklib::vpk2_archive* archive) {
+void info(vpklib::vpk_archive* archive) {
 	printf("Version: %d\n", archive->get_version());
 	printf("File count: %ld\n", archive->get_file_count());
 	printf("Base archive name: %s\n", archive->base_archive_name().c_str());
@@ -159,7 +159,7 @@ void info(vpklib::vpk2_archive* archive) {
 	}
 }
 
-void extract(vpklib::vpk2_archive* archive, ez::ezOptionParser& parser) {
+void extract(vpklib::vpk_archive* archive, ez::ezOptionParser& parser) {
 	auto grp = parser.get("-x");
 	
 	// Build list of regexp 
@@ -193,7 +193,7 @@ void extract(vpklib::vpk2_archive* archive, ez::ezOptionParser& parser) {
 	}
 	
 	// Grab the destination directory 
-	ez::OptionGroup* grp = nullptr;
+	grp = nullptr;
 	if(!(grp = parser.get("-o"))) {
 		printf("ERROR: --output was not specified\n");
 		exit(1);

@@ -5,22 +5,21 @@
 #include <cstring>
 
 #include "vpk.hpp"
-#include "util.hpp"
 
 using namespace vpklib;
 
 constexpr size_t MAX_TOKEN_STRING = 512;
 
-bool vpk2_archive::read(const void* mem, size_t size) {
+bool vpk_archive::read(const void* mem, size_t size) {
 
 	util::ReadContext stream(static_cast<const char*>(mem), size);
 
 	// Total size of file data contained within the _dir vpk
 	size_t dirFileDataSize = 0;
 
-	//try
-	//{
-		auto header = stream.read<vpk2::Header>();
+	try
+	{
+		auto header = stream.read<vpk::Header>();
 
 		if(header.signature != VPK_SIGNATURE || (header.version != 2 && header.version != 1)) {
 			printf("Signature did not match %X    ver %d\n", header.signature, header.version);
@@ -28,6 +27,11 @@ bool vpk2_archive::read(const void* mem, size_t size) {
 		}
 		
 		this->version = header.version;
+		
+		size_t headerSize = sizeof(vpk::Header);
+		if(this->version == 2) {
+			headerSize += sizeof(vpk2::HeaderExt);
+		}
 		
 		auto sectionMD5Size = 0ull;
 		auto signatureSectionSize = 0ull;
@@ -78,7 +82,7 @@ bool vpk2_archive::read(const void* mem, size_t size) {
 					// If archive_index is 0x7FFF, entry offset is relative to sizeof(Header) + treeLength
 					// and the data is in _dir.vpk
 					if(dirent.archive_index == 0x7FFF) {
-						file->offset = dirent.entry_offset + sizeof(vpk2::Header) + header.tree_size;
+						file->offset = dirent.entry_offset + headerSize + header.tree_size;
 						dirFileDataSize += file->length;
 					}
 					else {
@@ -138,11 +142,11 @@ bool vpk2_archive::read(const void* mem, size_t size) {
 			m_signatureSection.signature = std::make_unique<char[]>(sigSize);
 			stream.read_bytes(m_signatureSection.signature.get(), sigSize);
 		}
-	//}
-	//catch (std::exception& any)
-	//{
-	//	return false;
-	//}
+	}
+	catch (std::exception& any)
+	{
+		return false;
+	}
 	
 	m_fileHandles = std::make_unique<FILE*[]>(m_maxPakIndex);
 
@@ -150,8 +154,8 @@ bool vpk2_archive::read(const void* mem, size_t size) {
 
 }
 
-vpk2_archive* vpk2_archive::read_from_disk(const std::filesystem::path& path) {
-	auto archive = new vpk2_archive();
+vpk_archive* vpk_archive::read_from_disk(const std::filesystem::path& path) {
+	auto archive = new vpk_archive();
 
 	auto basename = path.string();
 	basename.erase(basename.find("_dir.vpk"), basename.size());
@@ -178,7 +182,7 @@ vpk2_archive* vpk2_archive::read_from_disk(const std::filesystem::path& path) {
 	return nullptr;
 }
 
-vpk_file_handle vpk2_archive::find_file(const std::string& name) {
+vpk_file_handle vpk_archive::find_file(const std::string& name) {
 	// TODO: Force the name to use POSIX style slashes?
 	auto it = m_handles.find(name);
 	if(it != m_handles.end()) {
@@ -189,32 +193,32 @@ vpk_file_handle vpk2_archive::find_file(const std::string& name) {
 	}
 }
 
-size_t vpk2_archive::get_file_size(const std::string& name) {
+size_t vpk_archive::get_file_size(const std::string& name) {
 	return get_file_size(find_file(name));
 }
 
-size_t vpk2_archive::get_file_size(vpk_file_handle handle) {
+size_t vpk_archive::get_file_size(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
 		return 0;
 	const auto& file = m_files[handle];
 	return file->preload_size + file->length;
 }
 
-size_t vpk2_archive::get_file_preload_size(const std::string& name) {
+size_t vpk_archive::get_file_preload_size(const std::string& name) {
 	return get_file_preload_size(find_file(name));
 }
 
-size_t vpk2_archive::get_file_preload_size(vpk_file_handle handle) {
+size_t vpk_archive::get_file_preload_size(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
 		return 0;
 	return m_files[handle]->preload_size;
 }
 
-std::unique_ptr<char[]> vpk2_archive::get_file_preload_data(const std::string& name) {
+std::unique_ptr<char[]> vpk_archive::get_file_preload_data(const std::string& name) {
 	return get_file_preload_data(find_file(name));
 }
 
-std::unique_ptr<char[]> vpk2_archive::get_file_preload_data(vpk_file_handle handle) {
+std::unique_ptr<char[]> vpk_archive::get_file_preload_data(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
 		return std::unique_ptr<char[]>();
 
@@ -228,11 +232,11 @@ std::unique_ptr<char[]> vpk2_archive::get_file_preload_data(vpk_file_handle hand
 	return std::move(data);
 }
 
-std::pair<std::size_t, std::shared_ptr<char[]>> vpk2_archive::get_file_data(const std::string& name) {
+std::pair<std::size_t, std::shared_ptr<char[]>> vpk_archive::get_file_data(const std::string& name) {
 	return get_file_data(find_file(name));
 }
 
-std::pair<std::size_t, std::shared_ptr<char[]>> vpk2_archive::get_file_data(vpk_file_handle handle) {
+std::pair<std::size_t, std::shared_ptr<char[]>> vpk_archive::get_file_data(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
 		return std::pair<std::size_t, std::unique_ptr<char[]>>();
 
@@ -250,12 +254,12 @@ std::pair<std::size_t, std::shared_ptr<char[]>> vpk2_archive::get_file_data(vpk_
 		auto apath = m_baseArchiveName + num;
 		m_fileHandles[file->archive_index] = fopen(apath.c_str(), "r");
 
-		if(m_fileHandles[file->archive_index]) {
-			printf("Opened archive %s\n", apath.c_str());
-		}
-		else {
-			printf("Could not open %s\n", apath.c_str());
-		}
+		//if(m_fileHandles[file->archive_index]) {
+		//	printf("Opened archive %s\n", apath.c_str());
+		//}
+		//else {
+		//	printf("Could not open %s\n", apath.c_str());
+		//}
 	}
 
 	// Handle the case where the data is in the _dir PAK
@@ -281,17 +285,17 @@ std::pair<std::size_t, std::shared_ptr<char[]>> vpk2_archive::get_file_data(vpk_
 	return {totalSize, std::move(data)};
 }
 
-vpk2_search vpk2_archive::get_all_files() {
-	return vpk2_search(0, m_files.size(), this);
+vpk_search vpk_archive::get_all_files() {
+	return vpk_search(0, m_files.size(), this);
 }
 
-std::string vpk2_archive::get_file_name(vpk_file_handle handle) {
+std::string vpk_archive::get_file_name(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE || handle >= m_fileNames.size())
 		return "";
 	return m_fileNames[handle];
 }
 
-vpk2_search vpk2_archive::find_in_directory(const std::string& path) {
+vpk_search vpk_archive::find_in_directory(const std::string& path) {
 	std::size_t begin = -1, end = 0;
 	for(std::size_t i = 0; i < m_fileNames.size(); i++) {
 		if(m_fileNames[i].starts_with(path)) {
@@ -299,13 +303,13 @@ vpk2_search vpk2_archive::find_in_directory(const std::string& path) {
 				begin = i;
 		} else if(begin != -1) {
 			end = i;
-			return vpk2_search(begin, end, this);
+			return vpk_search(begin, end, this);
 		}
 	}
-	return vpk2_search(0, 0, this);
+	return vpk_search(0, 0, this);
 }
 
-std::size_t vpk2_archive::get_file_preload_data(vpk_file_handle handle, void* buffer, std::size_t bufferSize) {
+std::size_t vpk_archive::get_file_preload_data(vpk_file_handle handle, void* buffer, std::size_t bufferSize) {
 	if(handle == INVALID_HANDLE)
 		return 0;
 
@@ -316,15 +320,15 @@ std::size_t vpk2_archive::get_file_preload_data(vpk_file_handle handle, void* bu
 	return bytesToCopy;
 }
 
-std::size_t vpk2_archive::get_file_preload_data(const std::string& name, void* buffer, std::size_t bufferSize) {
+std::size_t vpk_archive::get_file_preload_data(const std::string& name, void* buffer, std::size_t bufferSize) {
 	return get_file_preload_data(find_file(name), buffer, bufferSize);
 }
 
-size_t vpk2_archive::get_pubkey_size() {
+size_t vpk_archive::get_pubkey_size() {
 	return m_signatureSection.pubkey_size;
 }
 
-std::unique_ptr<char[]> vpk2_archive::get_pubkey() {
+std::unique_ptr<char[]> vpk_archive::get_pubkey() {
 	if(!m_signatureSection.pubkey_size)
 		return std::unique_ptr<char[]>();
 	auto data = std::make_unique<char[]>(m_signatureSection.pubkey_size);
@@ -332,7 +336,7 @@ std::unique_ptr<char[]> vpk2_archive::get_pubkey() {
 	return data;
 }
 
-size_t vpk2_archive::get_pubkey(void* buffer, size_t bufSize) {
+size_t vpk_archive::get_pubkey(void* buffer, size_t bufSize) {
 	size_t copied = 0;
 	if(m_signatureSection.pubkey_size) {
 		copied = m_signatureSection.pubkey_size > bufSize ? bufSize : m_signatureSection.pubkey_size;
@@ -341,11 +345,11 @@ size_t vpk2_archive::get_pubkey(void* buffer, size_t bufSize) {
 	return copied;
 }
 
-size_t vpk2_archive::get_signature_size() {
+size_t vpk_archive::get_signature_size() {
 	return m_signatureSection.signature_size;
 }
 
-std::unique_ptr<char[]> vpk2_archive::get_signature() {
+std::unique_ptr<char[]> vpk_archive::get_signature() {
 	if(!m_signatureSection.signature_size)
 		return std::unique_ptr<char[]>();
 	auto data = std::make_unique<char[]>(m_signatureSection.signature_size);
@@ -353,7 +357,7 @@ std::unique_ptr<char[]> vpk2_archive::get_signature() {
 	return data;
 }
 
-size_t vpk2_archive::get_signature(void* buffer, size_t bufSize) {
+size_t vpk_archive::get_signature(void* buffer, size_t bufSize) {
 	size_t copied = 0;
 	if(m_signatureSection.signature_size) {
 		copied = m_signatureSection.signature_size > bufSize ? bufSize : m_signatureSection.signature_size;
@@ -362,22 +366,22 @@ size_t vpk2_archive::get_signature(void* buffer, size_t bufSize) {
 	return copied;
 }
 
-std::uint16_t vpk2_archive::get_file_archive_index(const std::string& name) {
+std::uint16_t vpk_archive::get_file_archive_index(const std::string& name) {
 	return get_file_archive_index(find_file(name));
 }
 
-std::uint16_t vpk2_archive::get_file_archive_index(vpk_file_handle handle) {
+std::uint16_t vpk_archive::get_file_archive_index(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
 		return 0;
 	const auto& file = m_files[handle];
 	return file->archive_index;
 }
 		
-std::uint32_t vpk2_archive::get_file_crc32(const std::string& name) {
+std::uint32_t vpk_archive::get_file_crc32(const std::string& name) {
 	return get_file_crc32(find_file(name));
 }
 
-std::uint32_t vpk2_archive::get_file_crc32(vpk_file_handle handle) {
+std::uint32_t vpk_archive::get_file_crc32(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
 		return 0;
 	const auto& file = m_files[handle];

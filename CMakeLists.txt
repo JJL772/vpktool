@@ -4,8 +4,7 @@ project(libvpk)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(LIBVPK_SRCS
-        src/vpk1.cpp
-        src/vpk2.cpp)
+        src/vpk.cpp)
 
 set(VPKTOOL_SRCS src/vpktool.cpp)
 

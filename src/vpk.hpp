@@ -12,6 +12,76 @@
 #define _PACKED_ATTR __attribute__((packed))
 #endif
 
+namespace vpklib {
+	namespace util {
+
+		struct ReadContext
+		{
+			std::uint64_t pos = 0;
+			std::uint64_t size;
+			const char* data;
+
+			ReadContext(const char* _data, std::uint64_t _size) :
+				data(_data),
+				size(_size)
+			{
+			}
+
+			template<class T>
+			T read() {
+				const T* dat = reinterpret_cast<const T*>(data + pos);
+				pos += sizeof(T);
+				return (*dat);
+			}
+
+			void read_string(char* buffer) {
+				while(data[pos] != 0) {
+					if(pos >= size)
+						break;
+					(*buffer) = data[pos];
+					buffer++;
+					pos++;
+				}
+				pos++;
+				*buffer = 0;
+			}
+
+			size_t read_bytes(char* buffer, size_t num) {
+				if(num + pos >= size)
+					return 0;
+
+				std::memcpy(buffer, data, num);
+				pos += num;
+				return num;
+			}
+
+			void set_pos(std::uint64_t pos) {
+				if(pos >= size)
+					throw std::out_of_range("set_pos called with value >= size");
+				pos = pos;
+			}
+
+			auto get_pos() {
+				return pos;
+			}
+
+			void seek(std::uint64_t forward) {
+				if(pos + forward >= size)
+					throw std::out_of_range("seek called with value that causes overflow");
+				pos += forward;
+			}
+
+			void seekr(std::uint64_t back) {
+				if (pos - back < 0)
+					throw std::out_of_range("seekr called with data that causes a underflow");
+				pos -= back;
+			}
+
+		};
+
+	}
+}
+
 namespace vpklib
 {
 	constexpr std::uint32_t VPK_SIGNATURE = 0x55AA1234;
@@ -49,9 +119,8 @@ namespace vpklib
 	}
 
 	// vpk2 specific definitions
-	namespace vpk2
+	namespace vpk
 	{
-		constexpr std::uint32_t VERSION = 2;
 
 		// VPK1/2 combined header
 		struct Header
@@ -60,7 +129,11 @@ namespace vpklib
 			std::uint32_t version;
 
 			std::uint32_t tree_size;
-		};
+		} _PACKED_ATTR;
+	}
+	
+	namespace vpk2 
+	{
 		
 		// Extended VPK2 header
 		struct HeaderExt
@@ -113,31 +186,11 @@ namespace vpklib
 	std::uint32_t get_vpk_version(const std::filesystem::path &path);
 	std::uint32_t get_vpk_version(const void* mem);
 
-	class VPK1Archive
+
+	class vpk_archive
 	{
 	private:
-		struct File
-		{
-			std::int32_t archive_index = 0;
-
-			std::uint32_t crc = 0;
-
-			std::uint16_t preload_size = 0;
-			std::unique_ptr<byte> preload_data;
-
-			std::uint32_t offset = 0;
-			std::uint32_t length = 0;
-
-			bool dirty = false;
-		};
-
-	};
-
-
-	class vpk2_archive
-	{
-	private:
-		friend class vpk2_search;
+		friend class vpk_search;
 		
 		std::uint32_t version = 2;
 
@@ -180,7 +233,7 @@ namespace vpklib
 		 * @param path 
 		 * @return VPK2Archive* 
 		 */
-		static vpk2_archive* read_from_disk(const std::filesystem::path& path);
+		static vpk_archive* read_from_disk(const std::filesystem::path& path);
 
 		/**
 		 * @brief Returns the version of the archive (1 or 2)
@@ -267,7 +320,7 @@ namespace vpklib
 		 * @brief Returns a generalized search that encompasses all files in the archive 
 		 * @return VPK2Search 
 		 */
-		class vpk2_search get_all_files();
+		class vpk_search get_all_files();
 
 		/**
 		 * @brief Returns the file name for the handle 
@@ -281,7 +334,7 @@ namespace vpklib
 		 * @param path Directory path
 		 * @return VPK2Search 
 		 */
-		vpk2_search find_in_directory(const std::string& path);
+		vpk_search find_in_directory(const std::string& path);
 
 		/**
 		 * @brief Returns the size of the public key
@@ -327,14 +380,14 @@ namespace vpklib
 
 	};
 
-	class vpk2_search
+	class vpk_search
 	{
 	private:
-		vpk2_archive* m_archive;
+		vpk_archive* m_archive;
 		vpk_file_handle m_start;
 		vpk_file_handle m_end;
 	public:
-		vpk2_search(vpk_file_handle start, vpk_file_handle end, vpk2_archive* archive) :
+		vpk_search(vpk_file_handle start, vpk_file_handle end, vpk_archive* archive) :
             m_start(start),
 			m_end(end),
 			m_archive(archive)
@@ -345,7 +398,7 @@ namespace vpklib
 		{
 		private:
 			vpk_file_handle m_handle;
-			vpk2_search& m_search;
+			vpk_search& m_search;
 		public:
 			using iterator_category = std::forward_iterator_tag;
 			using difference_type = std::ptrdiff_t;
@@ -353,7 +406,7 @@ namespace vpklib
 			using pointer = vpk_file_handle*;
 			using reference = vpk_file_handle&;
 
-			Iterator(value_type handle, vpk2_search& search) : m_handle(handle), m_search(search) {};
+			Iterator(value_type handle, vpk_search& search) : m_handle(handle), m_search(search) {};
 
 			std::pair<value_type, const std::string> operator*() const { return {m_handle, m_search.m_archive->get_file_name(m_handle)}; };
 			pointer operator->() { return &m_handle; };
