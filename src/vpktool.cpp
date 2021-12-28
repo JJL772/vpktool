@@ -137,7 +137,7 @@ void info(vpklib::vpk_archive* archive) {
 	}
 	else {
 		printf("Signature: ");
-		auto s = archive->get_signature();
+		auto s = static_cast<char*>(archive->get_signature());
 		for(auto i = 0; i < sigsize; i++) {
 			printf("0x%X ", s[i] & 0xFF);
 		}
@@ -151,7 +151,7 @@ void info(vpklib::vpk_archive* archive) {
 	}
 	else {
 		printf("Pubkey: ");
-		auto k = archive->get_pubkey();
+		auto k = static_cast<char*>(archive->get_pubkey());
 		for(auto i = 0; i < pubsize; i++) {
 			printf("0x%X ", k[i] & 0xFF);
 		}

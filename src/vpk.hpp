@@ -5,12 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <filesystem>
-
-#ifdef _MSC_VER
-#define _PACKED_ATTR
-#else
-#define _PACKED_ATTR __attribute__((packed))
-#endif
+#include <tuple>
 
 namespace vpklib {
 	namespace util {
@@ -106,7 +101,7 @@ namespace vpklib
 			std::uint32_t signature;
 			std::uint32_t version;
 			std::uint32_t tree_size;
-		} _PACKED_ATTR;
+		};
 
 		struct DirectoryEntry
 		{
@@ -115,7 +110,7 @@ namespace vpklib
 			std::uint16_t archive_index;
 			std::uint32_t entry_offset;
 			std::uint32_t entry_length;
-		} _PACKED_ATTR;
+		};
 	}
 
 	// vpk2 specific definitions
@@ -129,7 +124,7 @@ namespace vpklib
 			std::uint32_t version;
 
 			std::uint32_t tree_size;
-		} _PACKED_ATTR;
+		};
 	}
 	
 	namespace vpk2 
@@ -142,7 +137,7 @@ namespace vpklib
 			std::uint32_t archive_md5_section_size;
 			std::uint32_t other_md5_section_size;
 			std::uint32_t signature_section_size;
-		} _PACKED_ATTR;
+		};
 
 		struct DirectoryEntry
 		{
@@ -152,7 +147,7 @@ namespace vpklib
 			std::uint32_t entry_offset;
 			std::uint32_t entry_length;
 			std::uint16_t terminator;
-		} _PACKED_ATTR;
+		};
 
 		struct ArchiveMD5SectionEntry
 		{
@@ -160,19 +155,18 @@ namespace vpklib
 			std::uint32_t start_offset;
 			std::uint32_t count;
 			md5_t		  checksum;
-		} _PACKED_ATTR;
+		};
 
 		struct OtherMD5Section
 		{
 			md5_t tree_checksum;
 			md5_t archive_md5_section_checksum;
 			char unknown[16];
-		} _PACKED_ATTR;
+		};
 
 #pragma pack()
 
-		// This should not be read off the disk
-		// Instead create ptrs to the pubkey and signature buffers
+		// Not to be read from the disk
 		struct SignatureSection
 		{
 			std::uint32_t pubkey_size;
@@ -228,6 +222,8 @@ namespace vpklib
 		bool read(const void* mem, size_t size);
 
 	public:
+		~vpk_archive();
+	
 		/**
 		 * @brief Reads the file from disk 
 		 * @param path 
@@ -273,12 +269,12 @@ namespace vpklib
 
 		/**
 		 * @brief Returns the file preload data associated with the file
-		 * 
+		 * You must use `free` to free the pointer returned by this function.
 		 * @param name Path to the file or a handle 
-		 * @return ptr Pointer to the data
+		 * @return std::tuple<void*, std::size_t> Tuple containing pointer to data and size of data. Pointer must be freed by caller.
 		 */
-		std::unique_ptr<char[]> get_file_preload_data(const std::string& name);
-		std::unique_ptr<char[]> get_file_preload_data(vpk_file_handle handle);
+		std::tuple<void*, std::size_t> get_file_preload_data(const std::string& name);
+		std::tuple<void*, std::size_t> get_file_preload_data(vpk_file_handle handle);
 		
 		/**
 		 * @brief Copies file preload data into the specified buffer
@@ -292,12 +288,13 @@ namespace vpklib
 
 		/**
 		 * @brief Returns a unique ptr to the file data.
-		 * If there is preload data associated with the file, it is concatenated with the actual data
+		 * If there is preload data associated with the file, it is concatenated with the actual data.
+		 * Returned void* ptr must be freed using `free` by the caller.
 		 * @param name Path to file or handle of file
-		 * @return std::pair<SizeT, std::unique_ptr<char[]>> First item in pair is the size of the data, second item is shared ptr to data
+		 * @return std::tuple<void*,std::size_t> data Tuple containing the data and size of the data. Must be freed by caller.
 		 */
-		std::pair<std::size_t, std::shared_ptr<char[]>> get_file_data(const std::string& name);
-		std::pair<std::size_t, std::shared_ptr<char[]>> get_file_data(vpk_file_handle handle);
+		std::tuple<void*, std::size_t> get_file_data(const std::string& name);
+		std::tuple<void*, std::size_t> get_file_data(vpk_file_handle handle);
 		
 		/**
 		 * @brief Copies the file's data into the specified buffer 
@@ -346,7 +343,7 @@ namespace vpklib
 		 * @brief Returns a buffer that contains the public key 
 		 * @return 
 		 */
-		std::unique_ptr<char[]> get_pubkey();
+		void* get_pubkey();
 		size_t get_pubkey(void* buffer, size_t bufSize);
 
 		/**
@@ -359,7 +356,7 @@ namespace vpklib
 		 * @brief Returns a buffer that contains the signature 
 		 * @return std::unique_ptr<char[]> 
 		 */
-		std::unique_ptr<char[]> get_signature();
+		void* get_signature();
 		size_t get_signature(void* buffer, size_t bufSize);
 		
 		/**

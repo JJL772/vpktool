@@ -10,6 +10,14 @@ using namespace vpklib;
 
 constexpr size_t MAX_TOKEN_STRING = 512;
 
+vpk_archive::~vpk_archive() {
+	for(int i = 0; i < m_maxPakIndex; i++) {
+		if(m_fileHandles[i]) {
+			fclose(m_fileHandles[i]);
+		}
+	}
+}
+
 bool vpk_archive::read(const void* mem, size_t size) {
 
 	util::ReadContext stream(static_cast<const char*>(mem), size);
@@ -214,38 +222,37 @@ size_t vpk_archive::get_file_preload_size(vpk_file_handle handle) {
 	return m_files[handle]->preload_size;
 }
 
-std::unique_ptr<char[]> vpk_archive::get_file_preload_data(const std::string& name) {
+std::tuple<void*, std::size_t>  vpk_archive::get_file_preload_data(const std::string& name) {
 	return get_file_preload_data(find_file(name));
 }
 
-std::unique_ptr<char[]> vpk_archive::get_file_preload_data(vpk_file_handle handle) {
+std::tuple<void*, std::size_t> vpk_archive::get_file_preload_data(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
-		return std::unique_ptr<char[]>();
+		return std::make_tuple(nullptr, 0);
 
 	const auto &file = m_files[handle];
 
 	if(file->preload_size == 0)
-		return std::unique_ptr<char[]>();
+		return std::make_tuple(nullptr, 0);
 
-	auto data = std::make_unique<char[]>(file->preload_size);
-	std::memcpy(data.get(), file->preload_data.get(), file->preload_size);
-	return std::move(data);
+	auto data = static_cast<char*>(malloc(file->preload_size));
+	std::memcpy(data, file->preload_data.get(), file->preload_size);
+	return std::make_tuple(data, file->preload_size);
 }
 
-std::pair<std::size_t, std::shared_ptr<char[]>> vpk_archive::get_file_data(const std::string& name) {
+std::tuple<void*, std::size_t> vpk_archive::get_file_data(const std::string& name) {
 	return get_file_data(find_file(name));
 }
 
-std::pair<std::size_t, std::shared_ptr<char[]>> vpk_archive::get_file_data(vpk_file_handle handle) {
+std::tuple<void*, std::size_t> vpk_archive::get_file_data(vpk_file_handle handle) {
 	if(handle == INVALID_HANDLE)
-		return std::pair<std::size_t, std::unique_ptr<char[]>>();
+		return std::make_tuple(nullptr,0);
 
 	const auto& file = m_files[handle];
 	const auto fileSize = static_cast<std::size_t>(get_file_size(handle));
 	const auto preloadSize = get_file_preload_size(handle);
 	const auto totalSize = preloadSize + file->length;
-	//auto data = std::make_shared<char[]>(fileSize);
-	auto data = std::shared_ptr<char[]>(new char[fileSize]);
+	auto data = static_cast<char*>(malloc(fileSize));
 
 	// If handle is not open already, open it
 	if(!(m_fileHandles)[file->archive_index] && file->archive_index != 0x7FFF) {
@@ -253,13 +260,6 @@ std::pair<std::size_t, std::shared_ptr<char[]>> vpk_archive::get_file_data(vpk_f
 		snprintf(num, sizeof(num), "_%03d.vpk", file->archive_index);
 		auto apath = m_baseArchiveName + num;
 		m_fileHandles[file->archive_index] = fopen(apath.c_str(), "r");
-
-		//if(m_fileHandles[file->archive_index]) {
-		//	printf("Opened archive %s\n", apath.c_str());
-		//}
-		//else {
-		//	printf("Could not open %s\n", apath.c_str());
-		//}
 	}
 
 	// Handle the case where the data is in the _dir PAK
@@ -272,17 +272,17 @@ std::pair<std::size_t, std::shared_ptr<char[]>> vpk_archive::get_file_data(vpk_f
 	}
 
 	if(!archHandle) {
-		return std::pair<std::size_t, std::unique_ptr<char[]>>();
+		return std::make_tuple(nullptr, 0);
 	}
 
 	// Read preload data into the buffer
-	get_file_preload_data(handle, data.get(), preloadSize);
+	get_file_preload_data(handle, data, preloadSize);
 
 	// Now run a fread to grab the rest of the data
 	fseek(archHandle, file->offset, SEEK_SET);
-	fread(data.get() + preloadSize, file->length, 1, archHandle);
+	fread(data + preloadSize, file->length, 1, archHandle);
 
-	return {totalSize, std::move(data)};
+	return std::make_tuple(data, totalSize);
 }
 
 vpk_search vpk_archive::get_all_files() {
@@ -328,12 +328,8 @@ size_t vpk_archive::get_pubkey_size() {
 	return m_signatureSection.pubkey_size;
 }
 
-std::unique_ptr<char[]> vpk_archive::get_pubkey() {
-	if(!m_signatureSection.pubkey_size)
-		return std::unique_ptr<char[]>();
-	auto data = std::make_unique<char[]>(m_signatureSection.pubkey_size);
-	std::memcpy(data.get(), m_signatureSection.pubkey.get(), m_signatureSection.pubkey_size);
-	return data;
+void* vpk_archive::get_pubkey() {
+	return m_signatureSection.pubkey.get();
 }
 
 size_t vpk_archive::get_pubkey(void* buffer, size_t bufSize) {
@@ -349,12 +345,8 @@ size_t vpk_archive::get_signature_size() {
 	return m_signatureSection.signature_size;
 }
 
-std::unique_ptr<char[]> vpk_archive::get_signature() {
-	if(!m_signatureSection.signature_size)
-		return std::unique_ptr<char[]>();
-	auto data = std::make_unique<char[]>(m_signatureSection.signature_size);
-	std::memcpy(data.get(), m_signatureSection.signature.get(), m_signatureSection.signature_size);
-	return data;
+void* vpk_archive::get_signature() {
+	return m_signatureSection.signature.get();
 }
 
 size_t vpk_archive::get_signature(void* buffer, size_t bufSize) {
