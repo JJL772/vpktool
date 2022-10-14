@@ -233,22 +233,21 @@ static bool vpk_extract(vpklib::vpk_archive* archive, argparse::ArgumentParser& 
 	bool hasRegex = expressions.size();
 	for(auto [fh, name] : search) {
 
-		// Regexp processing
-		if (hasRegex) {
-			for(auto& r : expressions) {
-				if(std::regex_match(name, r)) {
-					if (!extractFile(fh))
-						return false;
-					break;
-				}
-			}
-		}
-		// No regexp provided
-		else {
+		// Standard processing w/o regexp
+		if (!hasRegex) {
 			if (!extractFile(fh))
 				return false;
+			continue;
 		}
 
+		// Regexp processing
+		for(auto& r : expressions) {
+			if(!std::regex_match(name, r))
+				continue;
+			if (!extractFile(fh))
+					return false;
+			break;
+		}
 	}
 	
 	return true;
