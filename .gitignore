@@ -1,0 +1,8 @@
+build/
+bin/
+cmake-*
+.idea/
+.vscode/
+tests/
+.kdev4
+*.kdev4
