@@ -6,6 +6,7 @@
 #include <vector>
 #include <filesystem>
 #include <tuple>
+#include <set>
 
 namespace vpklib
 {
@@ -147,6 +148,8 @@ namespace vpklib
 		std::vector<vpk2::ArchiveMD5SectionEntry> m_archiveSectionEntries;
 		vpk2::OtherMD5Section m_otherMD5Section;
 		vpk2::SignatureSection m_signatureSection;
+		
+		std::set<std::string> m_dirs;
 
 	private:
 		bool read(const void* mem, size_t size);
@@ -304,6 +307,12 @@ namespace vpklib
 		 */
 		std::uint32_t get_file_crc32(const std::string& name);
 		std::uint32_t get_file_crc32(vpk_file_handle handle);
+		
+		/**
+		 * @brief Returns the list of directories in the VPK
+		 * @return const std::vector<std::string>& Directory list
+		 */
+		const std::set<std::string>& get_directories() const;
 
 	};
 

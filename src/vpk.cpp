@@ -145,6 +145,8 @@ bool vpk_archive::read(const void* mem, size_t size) {
 				// If the directory is a single space, we actually don't have a directory! Indicate that.
 				if (*directory == ' ' && !*(directory+1))
 					*directory = 0;
+				else
+					m_dirs.insert(directory);
 
 				// Layer 3: File name
 				while(true) {
@@ -462,4 +464,8 @@ std::uint32_t vpk_archive::get_file_crc32(vpk_file_handle handle) {
 		return 0;
 	const auto& file = m_files[handle];
 	return file->crc;
+}
+
+const std::set<std::string>& vpk_archive::get_directories() const {
+	return m_dirs;
 }
