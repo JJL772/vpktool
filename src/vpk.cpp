@@ -122,7 +122,7 @@ bool vpk_archive::read(const void* mem, size_t size) {
 		
 		// skip the file data stored in this VPK so we can read actually useful stuff
 		if(dirFileDataSize)
-		stream.set_pos(dirFileDataSize);
+			stream.set_pos(dirFileDataSize);
 		
 		// Step 2: Post-dir tree and file data structures
 		

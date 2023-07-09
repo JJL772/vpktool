@@ -6,6 +6,7 @@
 #include <vector>
 #include <filesystem>
 #include <tuple>
+#include <cstring>
 
 namespace vpklib {
 	namespace util {
