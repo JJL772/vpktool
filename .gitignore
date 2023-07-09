@@ -6,3 +6,4 @@ cmake-*
 tests/
 .kdev4
 *.kdev4
+.ccls-cache
